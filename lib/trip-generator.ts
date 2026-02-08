@@ -108,59 +108,89 @@ export async function generateTripFromPhotos(
   const spots: Spot[] = []
   const geocodeCache: Array<ReverseGeocodeResult> = []
   
-  for (let i = 0; i < clusters.length; i++) {
-    const cluster = clusters[i]
+  console.log(`Starting geocoding for ${clusters.length} clusters`)
+  
+  // 並列処理で高速化（最大5件ずつ）
+  const batchSize = 5
+  for (let batchStart = 0; batchStart < clusters.length; batchStart += batchSize) {
+    const batchEnd = Math.min(batchStart + batchSize, clusters.length)
+    const batch = clusters.slice(batchStart, batchEnd)
     
-    try {
-      console.log(`Processing cluster ${i + 1}/${clusters.length}:`, {
-        centerLat: cluster.centerLat,
-        centerLng: cluster.centerLng,
-        photoCount: cluster.photos.length,
+    console.log(`Processing batch ${batchStart / batchSize + 1}: clusters ${batchStart + 1}-${batchEnd}`)
+    
+    // バッチ内のクラスタを並列処理
+    const batchResults = await Promise.allSettled(
+      batch.map(async (cluster, batchIndex) => {
+        const i = batchStart + batchIndex
+        
+        try {
+          console.log(`Processing cluster ${i + 1}/${clusters.length}:`, {
+            centerLat: cluster.centerLat,
+            centerLng: cluster.centerLng,
+            photoCount: cluster.photos.length,
+          })
+          
+          // 座標の妥当性チェック
+          if (!isFinite(cluster.centerLat) || !isFinite(cluster.centerLng)) {
+            console.error('Invalid cluster coordinates:', cluster)
+            throw new Error(`クラスタ${i + 1}の座標が不正です`)
+          }
+          
+          // 逆ジオコーディング
+          const geocode = await reverseGeocode(cluster.centerLat, cluster.centerLng)
+          
+          console.log(`Geocode result for cluster ${i + 1}:`, geocode)
+          
+          // 代表写真を選定
+          const representativePhoto = selectRepresentativePhoto(cluster)
+          
+          // 写真URLを生成(実際はS3などにアップロード)
+          const photoUrls = cluster.photos.map((p) => URL.createObjectURL(p.file))
+          
+          return {
+            spot: {
+              id: cluster.id,
+              name: geocode.name,
+              address: geocode.address,
+              lat: cluster.centerLat,
+              lng: cluster.centerLng,
+              arrivalTime: cluster.arrivalTime.toISOString(),
+              departureTime: cluster.departureTime.toISOString(),
+              photos: photoUrls,
+              representativePhoto: photoUrls[0],
+            },
+            geocode,
+          }
+        } catch (error) {
+          console.error(`Error processing cluster ${i + 1}:`, error)
+          throw error
+        }
       })
+    )
+    
+    // 結果を処理
+    for (let i = 0; i < batchResults.length; i++) {
+      const result = batchResults[i]
+      const clusterIndex = batchStart + i
       
-      // 座標の妥当性チェック
-      if (!isFinite(cluster.centerLat) || !isFinite(cluster.centerLng)) {
-        console.error('Invalid cluster coordinates:', cluster)
-        warnings.push(`クラスタ${i + 1}の座標が不正です`)
-        continue
+      if (result.status === 'fulfilled') {
+        spots.push(result.value.spot)
+        geocodeCache.push(result.value.geocode)
+      } else {
+        console.error(`Failed to process cluster ${clusterIndex + 1}:`, result.reason)
+        warnings.push(`スポット${clusterIndex + 1}の処理中にエラーが発生しました`)
       }
-      
-      // 逆ジオコーディング
-      const geocode = await reverseGeocode(cluster.centerLat, cluster.centerLng)
-      geocodeCache.push(geocode)
-      
-      console.log(`Geocode result for cluster ${i + 1}:`, geocode)
-      
-      // 代表写真を選定
-      const representativePhoto = selectRepresentativePhoto(cluster)
-      
-      // 写真URLを生成(実際はS3などにアップロード)
-      const photoUrls = cluster.photos.map((p) => URL.createObjectURL(p.file))
-      
-      spots.push({
-        id: cluster.id,
-        name: geocode.name,
-        address: geocode.address,
-        lat: cluster.centerLat,
-        lng: cluster.centerLng,
-        arrivalTime: cluster.arrivalTime.toISOString(),
-        departureTime: cluster.departureTime.toISOString(),
-        photos: photoUrls,
-        representativePhoto: photoUrls[0],
-      })
-    } catch (error) {
-      console.error(`Error processing cluster ${i + 1}:`, error)
-      warnings.push(`スポット${i + 1}の処理中にエラーが発生しました`)
-      continue
     }
-
+    
     // 進捗更新
     onProgress?.({
       step: 'geocoding',
-      progress: 60 + (i / clusters.length) * 20,
-      message: `スポット情報を取得中... (${i + 1}/${clusters.length})`,
+      progress: 60 + (batchEnd / clusters.length) * 20,
+      message: `スポット情報を取得中... (${batchEnd}/${clusters.length})`,
     })
   }
+  
+  console.log(`Geocoding completed: ${spots.length}/${clusters.length} spots processed`)
 
   // ステップ4: 旅行記録データ生成
   onProgress?.({

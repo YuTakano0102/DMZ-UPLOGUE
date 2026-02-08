@@ -203,31 +203,57 @@ export default function UploadPage() {
         setProgress((prev) => Math.min(prev + 5, 90))
       }, 200)
 
-      // APIリクエスト
-      const response = await fetch("/api/trips/generate", {
-        method: "POST",
-        body: formData,
-      })
+      console.log('Starting trip generation API call...')
+      const startTime = Date.now()
 
-      clearInterval(progressInterval)
+      // APIリクエスト（タイムアウト90秒）
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => {
+        console.error('API call timeout after 90 seconds')
+        controller.abort()
+      }, 90000)
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "旅行記録の生成に失敗しました")
+      try {
+        const response = await fetch("/api/trips/generate", {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+        clearInterval(progressInterval)
+        
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2)
+        console.log(`API call completed in ${duration}s`)
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "旅行記録の生成に失敗しました")
+        }
+
+        const result = await response.json()
+        
+        console.log('Trip generation result:', result)
+        
+        // 生成された旅行記録を保存(localStorageに保存)
+        const { saveTrip } = await import("@/lib/trip-storage")
+        saveTrip(result.trip)
+        
+        setGeneratedTrip(result.trip)
+        setWarnings(result.warnings || [])
+        setProgress(100)
+
+        await new Promise((r) => setTimeout(r, 500))
+        setStep("done")
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId)
+        clearInterval(progressInterval)
+        
+        if (fetchError.name === 'AbortError') {
+          throw new Error('処理に時間がかかりすぎました。写真の枚数を減らして再度お試しください。')
+        }
+        throw fetchError
       }
-
-      const result = await response.json()
-      
-      // 生成された旅行記録を保存(localStorageに保存)
-      const { saveTrip } = await import("@/lib/trip-storage")
-      saveTrip(result.trip)
-      
-      setGeneratedTrip(result.trip)
-      setWarnings(result.warnings || [])
-      setProgress(100)
-
-      await new Promise((r) => setTimeout(r, 500))
-      setStep("done")
     } catch (err) {
       console.error("Trip generation error:", err)
       setError(err instanceof Error ? err.message : "旅行記録の生成に失敗しました")
