@@ -68,7 +68,7 @@ export default function UploadPage() {
     return {
       startDate: start,
       endDate: end,
-      location: gpsCount > 0 ? "京都府 京都市" : "不明",
+      location: gpsCount > 0 ? "位置情報を検出" : "不明",
       locationConfidence: gpsCount > 0 ? "GPS検出済み" : "位置情報なし",
       photoCount: photos.length,
       gpsCount,

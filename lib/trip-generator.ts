@@ -106,11 +106,22 @@ export async function generateTripFromPhotos(
   })
 
   const spots: Spot[] = []
+  const geocodeCache: Array<ReverseGeocodeResult> = []
+  
   for (let i = 0; i < clusters.length; i++) {
     const cluster = clusters[i]
     
+    console.log(`Processing cluster ${i + 1}/${clusters.length}:`, {
+      centerLat: cluster.centerLat,
+      centerLng: cluster.centerLng,
+      photoCount: cluster.photos.length,
+    })
+    
     // 逆ジオコーディング
     const geocode = await reverseGeocode(cluster.centerLat, cluster.centerLng)
+    geocodeCache.push(geocode)
+    
+    console.log(`Geocode result for cluster ${i + 1}:`, geocode)
     
     // 代表写真を選定
     const representativePhoto = selectRepresentativePhoto(cluster)
@@ -156,14 +167,16 @@ export async function generateTripFromPhotos(
 
   // 旅行のタイトルを生成
   let title = '旅の記録'
-  if (spots.length > 0) {
-    const prefecture = extractPrefecture(spots[0].address)
+  let location = '不明'
+  
+  if (spots.length > 0 && geocodeCache.length > 0) {
+    // Mapbox APIから取得したregion情報を優先的に使用
+    const firstGeocode = geocodeCache[0]
+    location = firstGeocode.region || extractPrefecture(firstGeocode.address) || '不明'
+    
     const startMonth = new Date(startDate).getMonth() + 1
-    title = `${prefecture}・${startMonth}月の旅`
+    title = location !== '不明' ? `${location}・${startMonth}月の旅` : '旅の記録'
   }
-
-  // 旅行の位置情報を決定
-  const location = spots.length > 0 ? extractPrefecture(spots[0].address) : '不明'
 
   // カバー画像は最初のスポットの代表写真
   const coverImage = spots[0]?.representativePhoto || ''

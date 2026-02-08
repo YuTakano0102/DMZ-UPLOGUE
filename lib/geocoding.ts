@@ -46,6 +46,9 @@ export async function reverseGeocode(
     }
 
     const data = await response.json()
+    
+    // デバッグ情報をログに出力
+    console.log('Mapbox API Response for', lat, lng, ':', JSON.stringify(data, null, 2))
 
     if (!data.features || data.features.length === 0) {
       return {
@@ -64,6 +67,16 @@ export async function reverseGeocode(
     const place = context.find((c: any) => c.id.startsWith('place'))?.text || ''
     const region = context.find((c: any) => c.id.startsWith('region'))?.text || ''
     const country = context.find((c: any) => c.id.startsWith('country'))?.text || ''
+    
+    console.log('Parsed geocode result:', { 
+      name: feature.text,
+      address: feature.place_name, 
+      place, 
+      region, 
+      country,
+      lat,
+      lng
+    })
 
     return {
       name: feature.text || feature.place_name || '不明なスポット',
