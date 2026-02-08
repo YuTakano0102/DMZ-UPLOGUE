@@ -23,6 +23,20 @@ export async function reverseGeocode(
   lat: number,
   lng: number
 ): Promise<ReverseGeocodeResult> {
+  // 座標の妥当性チェック
+  if (typeof lat !== 'number' || typeof lng !== 'number' || 
+      !isFinite(lat) || !isFinite(lng) ||
+      lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    console.error('Invalid coordinates provided:', { lat, lng })
+    return {
+      name: '不明なスポット',
+      address: '座標が不正です',
+      place: '',
+      region: '',
+      country: '',
+    }
+  }
+
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
   if (!mapboxToken) {
@@ -38,6 +52,8 @@ export async function reverseGeocode(
 
   try {
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxToken}&language=ja&types=poi,address,place`
+    
+    console.log('Mapbox API request URL:', url.replace(mapboxToken, 'TOKEN'))
 
     const response = await fetch(url)
     
@@ -121,16 +137,38 @@ export async function batchReverseGeocode(
  * 住所文字列から都道府県名を抽出
  */
 export function extractPrefecture(address: string): string {
-  const prefecturePattern = /(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/
-  const match = address.match(prefecturePattern)
-  return match ? match[1] : ''
+  if (!address || typeof address !== 'string') {
+    console.warn('Invalid address provided to extractPrefecture:', address)
+    return ''
+  }
+  
+  try {
+    const prefecturePattern = /(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/
+    const match = address.match(prefecturePattern)
+    const result = match ? match[1] : ''
+    console.log(`extractPrefecture("${address}") => "${result}"`)
+    return result
+  } catch (error) {
+    console.error('Error in extractPrefecture:', error, 'Address:', address)
+    return ''
+  }
 }
 
 /**
  * 住所文字列から市区町村名を抽出
  */
 export function extractCity(address: string): string {
-  const cityPattern = /(?:東京都|北海道|(?:京都|大阪)府|.{2,3}県)(.+?[市区町村])/
-  const match = address.match(cityPattern)
-  return match ? match[1] : ''
+  if (!address || typeof address !== 'string') {
+    console.warn('Invalid address provided to extractCity:', address)
+    return ''
+  }
+  
+  try {
+    const cityPattern = /(?:東京都|北海道|(?:京都|大阪)府|.{2,3}県)(.+?[市区町村])/
+    const match = address.match(cityPattern)
+    return match ? match[1] : ''
+  } catch (error) {
+    console.error('Error in extractCity:', error, 'Address:', address)
+    return ''
+  }
 }

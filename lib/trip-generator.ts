@@ -111,35 +111,48 @@ export async function generateTripFromPhotos(
   for (let i = 0; i < clusters.length; i++) {
     const cluster = clusters[i]
     
-    console.log(`Processing cluster ${i + 1}/${clusters.length}:`, {
-      centerLat: cluster.centerLat,
-      centerLng: cluster.centerLng,
-      photoCount: cluster.photos.length,
-    })
-    
-    // 逆ジオコーディング
-    const geocode = await reverseGeocode(cluster.centerLat, cluster.centerLng)
-    geocodeCache.push(geocode)
-    
-    console.log(`Geocode result for cluster ${i + 1}:`, geocode)
-    
-    // 代表写真を選定
-    const representativePhoto = selectRepresentativePhoto(cluster)
-    
-    // 写真URLを生成(実際はS3などにアップロード)
-    const photoUrls = cluster.photos.map((p) => URL.createObjectURL(p.file))
-    
-    spots.push({
-      id: cluster.id,
-      name: geocode.name,
-      address: geocode.address,
-      lat: cluster.centerLat,
-      lng: cluster.centerLng,
-      arrivalTime: cluster.arrivalTime.toISOString(),
-      departureTime: cluster.departureTime.toISOString(),
-      photos: photoUrls,
-      representativePhoto: photoUrls[0],
-    })
+    try {
+      console.log(`Processing cluster ${i + 1}/${clusters.length}:`, {
+        centerLat: cluster.centerLat,
+        centerLng: cluster.centerLng,
+        photoCount: cluster.photos.length,
+      })
+      
+      // 座標の妥当性チェック
+      if (!isFinite(cluster.centerLat) || !isFinite(cluster.centerLng)) {
+        console.error('Invalid cluster coordinates:', cluster)
+        warnings.push(`クラスタ${i + 1}の座標が不正です`)
+        continue
+      }
+      
+      // 逆ジオコーディング
+      const geocode = await reverseGeocode(cluster.centerLat, cluster.centerLng)
+      geocodeCache.push(geocode)
+      
+      console.log(`Geocode result for cluster ${i + 1}:`, geocode)
+      
+      // 代表写真を選定
+      const representativePhoto = selectRepresentativePhoto(cluster)
+      
+      // 写真URLを生成(実際はS3などにアップロード)
+      const photoUrls = cluster.photos.map((p) => URL.createObjectURL(p.file))
+      
+      spots.push({
+        id: cluster.id,
+        name: geocode.name,
+        address: geocode.address,
+        lat: cluster.centerLat,
+        lng: cluster.centerLng,
+        arrivalTime: cluster.arrivalTime.toISOString(),
+        departureTime: cluster.departureTime.toISOString(),
+        photos: photoUrls,
+        representativePhoto: photoUrls[0],
+      })
+    } catch (error) {
+      console.error(`Error processing cluster ${i + 1}:`, error)
+      warnings.push(`スポット${i + 1}の処理中にエラーが発生しました`)
+      continue
+    }
 
     // 進捗更新
     onProgress?.({
@@ -155,6 +168,12 @@ export async function generateTripFromPhotos(
     progress: 90,
     message: '旅行記録を生成しています...',
   })
+  
+  // スポットが生成できなかった場合の処理
+  if (spots.length === 0) {
+    console.warn('No spots were generated')
+    warnings.push('スポットを検出できませんでした。GPS情報を確認してください。')
+  }
 
   // 旅行の開始日と終了日を算出
   const timestamps = photosWithExif
@@ -170,12 +189,36 @@ export async function generateTripFromPhotos(
   let location = '不明'
   
   if (spots.length > 0 && geocodeCache.length > 0) {
-    // Mapbox APIから取得したregion情報を優先的に使用
-    const firstGeocode = geocodeCache[0]
-    location = firstGeocode.region || extractPrefecture(firstGeocode.address) || '不明'
-    
-    const startMonth = new Date(startDate).getMonth() + 1
-    title = location !== '不明' ? `${location}・${startMonth}月の旅` : '旅の記録'
+    try {
+      // Mapbox APIから取得したregion情報を優先的に使用
+      const firstGeocode = geocodeCache[0]
+      console.log('First geocode data:', firstGeocode)
+      
+      // regionを確認
+      if (firstGeocode.region && firstGeocode.region.trim() !== '') {
+        location = firstGeocode.region
+        console.log('Using region from Mapbox:', location)
+      } else {
+        // regionが空の場合、addressから抽出を試みる
+        console.log('Region is empty, extracting from address:', firstGeocode.address)
+        const extracted = extractPrefecture(firstGeocode.address)
+        if (extracted && extracted.trim() !== '') {
+          location = extracted
+          console.log('Extracted prefecture:', location)
+        } else {
+          console.log('Could not extract prefecture, using place:', firstGeocode.place)
+          location = firstGeocode.place || '不明'
+        }
+      }
+      
+      const startMonth = new Date(startDate).getMonth() + 1
+      title = location !== '不明' && location !== '' ? `${location}・${startMonth}月の旅` : '旅の記録'
+      console.log('Generated title:', title, 'Location:', location)
+    } catch (error) {
+      console.error('Error generating title:', error)
+      title = '旅の記録'
+      location = '不明'
+    }
   }
 
   // カバー画像は最初のスポットの代表写真
