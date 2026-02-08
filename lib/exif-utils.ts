@@ -46,61 +46,102 @@ export async function extractExifFromImage(
       return extractExifSimple(file)
     }
 
-    // HEIC形式のサポートを含む全オプションを有効化
-    const data = await exifr.parse(file, {
-      tiff: true,
-      xmp: false,
-      icc: false,
-      iptc: false,
-      jfif: false,
-      ihdr: false,
-      gps: true,
-      exif: true,
-      ifd0: true,
-      ifd1: false,
-      interop: false,
-      makerNote: false,
-      userComment: false,
-      // HEIC/HEIFサポート
-      translateKeys: true,
-      translateValues: true,
-      reviveValues: true,
-      sanitize: true,
-      mergeOutput: true,
-      silentErrors: false,
-    }).catch((err: any) => {
-      // HEIC形式で"Unknown file format"エラーが出る場合の対応
-      if (err.message?.includes('Unknown file format')) {
-        console.warn(`HEIC format may not be fully supported for ${file.name}, attempting alternative extraction`)
-        // 代替手段: より寛容な設定で再試行
-        return exifr.parse(file, {
-          tiff: false,
+    console.log(`Extracting EXIF from: ${file.name} (${file.type || 'no mime type'}, ${(file.size / 1024).toFixed(2)} KB)`)
+
+    // まず、すべてのデータを取得してログに出力
+    let data: any = null
+    
+    try {
+      // HEIC/HEIF形式に最適化された設定
+      data = await exifr.parse(file, {
+        // 全てのセグメントを読み込む
+        tiff: true,
+        xmp: false,
+        icc: false,
+        iptc: false,
+        jfif: false,
+        ihdr: true,
+        
+        // GPS情報を確実に取得
+        gps: true,
+        
+        // EXIF情報
+        exif: true,
+        ifd0: true,
+        ifd1: true,
+        interop: true,
+        
+        // その他の設定
+        makerNote: false,
+        userComment: false,
+        
+        // HEIC/HEIFサポート強化
+        translateKeys: true,
+        translateValues: true,
+        reviveValues: true,
+        sanitize: false,  // sanitizeをオフにして生データを取得
+        mergeOutput: true,
+        silentErrors: false,
+        
+        // キーの変換を有効化
+        pick: undefined, // すべてのキーを取得
+      })
+    } catch (parseError: any) {
+      console.error(`Parse error for ${file.name}:`, parseError.message)
+      
+      // エラーが発生した場合、より寛容な設定で再試行
+      try {
+        console.log('Retrying with minimal configuration...')
+        data = await exifr.parse(file, {
           gps: true,
-          exif: true,
+          tiff: false,
           translateKeys: true,
           translateValues: true,
           reviveValues: true,
           silentErrors: true,
-        }).catch(() => null)
+        })
+      } catch (retryError) {
+        console.error('Retry also failed:', retryError)
       }
-      throw err
-    })
+    }
 
     if (!data) {
       console.warn(`No EXIF data found in ${file.name}, using file metadata`)
       return extractExifSimple(file)
     }
 
-    // GPS座標の取得（複数のフィールドを確認）
-    let latitude = data.latitude ?? data.GPSLatitude ?? null
-    let longitude = data.longitude ?? data.GPSLongitude ?? null
+    // デバッグ: 取得したすべてのキーを表示
+    console.log('Available EXIF keys:', Object.keys(data))
     
-    // 座標が配列形式の場合（古いEXIF形式）
-    if (Array.isArray(latitude) && latitude.length > 0) {
-      latitude = convertDMSToDD(latitude, data.GPSLatitudeRef || 'N')
+    // GPS関連のキーだけを表示
+    const gpsKeys = Object.keys(data).filter(key => 
+      key.toLowerCase().includes('gps') || 
+      key.toLowerCase().includes('latitude') || 
+      key.toLowerCase().includes('longitude')
+    )
+    console.log('GPS-related keys:', gpsKeys)
+    if (gpsKeys.length > 0) {
+      const gpsData: any = {}
+      gpsKeys.forEach(key => {
+        gpsData[key] = data[key]
+      })
+      console.log('GPS data:', gpsData)
     }
-    if (Array.isArray(longitude) && longitude.length > 0) {
-      longitude = convertDMSToDD(longitude, data.GPSLongitudeRef || 'E')
+
+    // GPS座標の取得（複数のフィールドを確認）
+    let latitude = data.latitude ?? data.GPSLatitude ?? data.Latitude ?? null
+    let longitude = data.longitude ?? data.GPSLongitude ?? data.Longitude ?? null
+    
+    // 座標が配列形式の場合（DMS形式: 度・分・秒）
+    if (Array.isArray(latitude) && latitude.length >= 3) {
+      const ref = data.GPSLatitudeRef || data.LatitudeRef || 'N'
+      latitude = convertDMSToDD(latitude, ref)
+      console.log(`Converted latitude from DMS to DD: ${latitude}`)
+    }
+    if (Array.isArray(longitude) && longitude.length >= 3) {
+      const ref = data.GPSLongitudeRef || data.LongitudeRef || 'E'
+      longitude = convertDMSToDD(longitude, ref)
+      console.log(`Converted longitude from DMS to DD: ${longitude}`)
     }
 
     // 撮影日時の取得（複数のフィールドを試行）
@@ -111,6 +152,7 @@ export async function extractExifFromImage(
       'DateTime',
       'DateCreated',
       'ModifyDate',
+      'CreationDate',
     ]
     
     for (const field of dateFields) {
@@ -118,6 +160,7 @@ export async function extractExifFromImage(
         try {
           timestamp = new Date(data[field])
           if (!isNaN(timestamp.getTime())) {
+            console.log(`Using timestamp from ${field}:`, timestamp.toISOString())
             break
           }
         } catch {
@@ -161,6 +204,8 @@ function convertDMSToDD(dms: number[], ref: string): number {
   if (ref === 'S' || ref === 'W') {
     dd = -dd
   }
+  
+  console.log(`DMS to DD conversion: [${degrees}, ${minutes}, ${seconds}] ${ref} → ${dd}`)
   
   return dd
 }
