@@ -1,0 +1,8 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Mountain/Location Pin shape representing travel -->
+  <path d="M60 20C48.954 20 40 28.954 40 40C40 54 60 80 60 80C60 80 80 54 80 40C80 28.954 71.046 20 60 20Z" fill="#C6922C" fill-opacity="0.9"/>
+  <circle cx="60" cy="40" r="8" fill="white"/>
+  
+  <!-- Subtle path/journey line -->
+  <path d="M30 95C30 95 45 85 60 85C75 85 90 95 90 95" stroke="#2E3A59" stroke-width="3" stroke-linecap="round" stroke-opacity="0.6"/>
+</svg>
