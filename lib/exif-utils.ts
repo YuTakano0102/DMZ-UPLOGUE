@@ -48,12 +48,46 @@ export async function extractExifFromImage(
 
     console.log(`Extracting EXIF from: ${file.name} (${file.type || 'no mime type'}, ${(file.size / 1024).toFixed(2)} KB)`)
 
+    // HEIC形式の場合、JPEGに変換してから処理
+    let fileToProcess = file
+    if (file.type === 'image/heic' || file.type === 'image/heif' || 
+        file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
+      
+      console.log('HEIC format detected, converting to JPEG...')
+      
+      try {
+        // heic2anyを動的インポート
+        const heic2any = (await import('heic2any')).default
+        
+        // HEICをJPEGに変換（BlobとしてEXIF情報を保持）
+        const convertedBlob = await heic2any({
+          blob: file,
+          toType: 'image/jpeg',
+          quality: 1.0, // 最高品質でEXIF情報を保持
+        })
+        
+        // BlobをFileに変換
+        const jpegBlob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob
+        fileToProcess = new File(
+          [jpegBlob], 
+          file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg'),
+          { type: 'image/jpeg', lastModified: file.lastModified }
+        )
+        
+        console.log(`✓ Converted HEIC to JPEG: ${fileToProcess.name}`)
+      } catch (conversionError) {
+        console.error('HEIC conversion failed:', conversionError)
+        console.log('Attempting to extract EXIF directly from HEIC...')
+        // 変換失敗時は元のファイルで試行
+      }
+    }
+
     // まず、すべてのデータを取得してログに出力
     let data: any = null
     
     try {
       // HEIC/HEIF形式に最適化された設定
-      data = await exifr.parse(file, {
+      data = await exifr.parse(fileToProcess, {
         // 全てのセグメントを読み込む
         tiff: true,
         xmp: false,
@@ -92,7 +126,7 @@ export async function extractExifFromImage(
       // エラーが発生した場合、より寛容な設定で再試行
       try {
         console.log('Retrying with minimal configuration...')
-        data = await exifr.parse(file, {
+        data = await exifr.parse(fileToProcess, {
           gps: true,
           tiff: false,
           translateKeys: true,
