@@ -130,7 +130,7 @@ export default function UploadPage() {
         // EXIF情報を抽出（exifr使用に切り替え）
         for (let i = 0; i < fileArray.length; i++) {
           const file = fileArray[i]
-          console.log(`[${i + 1}/${fileArray.length}] Processing:`, file.name)
+          console.log(`[${i + 1}/${fileArray.length}] Processing: ${file.name} (${file.type || 'unknown type'})`)
           
           try {
             const exif = await extractExifFromImage(file)
@@ -144,10 +144,27 @@ export default function UploadPage() {
             }
             
             newPhotos.push(photo)
-            console.log(`✓ Photo added: ${photo.id}, GPS: ${photo.hasGps}, Time: ${photo.timestamp}`)
+            
+            if (photo.hasGps) {
+              console.log(`✓ Photo added with GPS: ${photo.id}`, {
+                lat: exif.latitude,
+                lng: exif.longitude,
+                time: photo.timestamp.toISOString(),
+              })
+            } else {
+              console.log(`⚠ Photo added without GPS: ${photo.id}, Time: ${photo.timestamp.toISOString()}`)
+            }
           } catch (fileError) {
-            console.error(`Failed to process ${file.name}:`, fileError)
-            // エラーがあっても続行
+            console.error(`✗ Failed to process ${file.name}:`, fileError)
+            // エラーがあっても続行（GPS情報なしで追加）
+            const photo: MemoryPhoto = {
+              id: `${file.name}-${Date.now()}-${Math.random()}`,
+              file,
+              preview: URL.createObjectURL(file),
+              hasGps: false,
+              timestamp: new Date(file.lastModified),
+            }
+            newPhotos.push(photo)
           }
         }
 

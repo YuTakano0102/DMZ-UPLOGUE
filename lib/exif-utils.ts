@@ -46,40 +46,93 @@ export async function extractExifFromImage(
       return extractExifSimple(file)
     }
 
-    // EXIF情報を抽出
+    // HEIC形式のサポートを含む全オプションを有効化
     const data = await exifr.parse(file, {
+      tiff: true,
+      xmp: false,
+      icc: false,
+      iptc: false,
+      jfif: false,
+      ihdr: false,
       gps: true,
       exif: true,
       ifd0: true,
       ifd1: false,
       interop: false,
+      makerNote: false,
+      userComment: false,
+      // HEIC/HEIFサポート
+      translateKeys: true,
+      translateValues: true,
+      reviveValues: true,
+      sanitize: true,
+      mergeOutput: true,
+      silentErrors: false,
+    }).catch((err: any) => {
+      // HEIC形式で"Unknown file format"エラーが出る場合の対応
+      if (err.message?.includes('Unknown file format')) {
+        console.warn(`HEIC format may not be fully supported for ${file.name}, attempting alternative extraction`)
+        // 代替手段: より寛容な設定で再試行
+        return exifr.parse(file, {
+          tiff: false,
+          gps: true,
+          exif: true,
+          translateKeys: true,
+          translateValues: true,
+          reviveValues: true,
+          silentErrors: true,
+        }).catch(() => null)
+      }
+      throw err
     })
 
     if (!data) {
-      console.warn(`No EXIF data found in ${file.name}`)
+      console.warn(`No EXIF data found in ${file.name}, using file metadata`)
       return extractExifSimple(file)
     }
 
-    // GPS座標の取得
-    const latitude = data.latitude ?? null
-    const longitude = data.longitude ?? null
+    // GPS座標の取得（複数のフィールドを確認）
+    let latitude = data.latitude ?? data.GPSLatitude ?? null
+    let longitude = data.longitude ?? data.GPSLongitude ?? null
+    
+    // 座標が配列形式の場合（古いEXIF形式）
+    if (Array.isArray(latitude) && latitude.length > 0) {
+      latitude = convertDMSToDD(latitude, data.GPSLatitudeRef || 'N')
+    }
+    if (Array.isArray(longitude) && longitude.length > 0) {
+      longitude = convertDMSToDD(longitude, data.GPSLongitudeRef || 'E')
+    }
 
     // 撮影日時の取得（複数のフィールドを試行）
     let timestamp: Date | null = null
-    if (data.DateTimeOriginal) {
-      timestamp = new Date(data.DateTimeOriginal)
-    } else if (data.DateTime) {
-      timestamp = new Date(data.DateTime)
-    } else if (data.CreateDate) {
-      timestamp = new Date(data.CreateDate)
+    const dateFields = [
+      'DateTimeOriginal',
+      'CreateDate', 
+      'DateTime',
+      'DateCreated',
+      'ModifyDate',
+    ]
+    
+    for (const field of dateFields) {
+      if (data[field]) {
+        try {
+          timestamp = new Date(data[field])
+          if (!isNaN(timestamp.getTime())) {
+            break
+          }
+        } catch {
+          continue
+        }
+      }
     }
 
     // デバッグ用ログ
-    console.log(`EXIF extracted for ${file.name}:`, {
+    console.log(`✓ EXIF extracted for ${file.name}:`, {
       latitude,
       longitude,
-      timestamp,
+      timestamp: timestamp?.toISOString() || 'N/A',
       hasGPS: latitude !== null && longitude !== null,
+      fileType: file.type,
     })
 
     return {
@@ -89,9 +142,27 @@ export async function extractExifFromImage(
       fileName: file.name,
     }
   } catch (error) {
-    console.error(`Failed to extract EXIF from ${file.name}:`, error)
+    console.error(`✗ Failed to extract EXIF from ${file.name}:`, error)
     return extractExifSimple(file)
   }
+}
+
+/**
+ * DMS (Degrees, Minutes, Seconds) を DD (Decimal Degrees) に変換
+ */
+function convertDMSToDD(dms: number[], ref: string): number {
+  const degrees = dms[0] || 0
+  const minutes = dms[1] || 0
+  const seconds = dms[2] || 0
+  
+  let dd = degrees + minutes / 60 + seconds / 3600
+  
+  // 南半球または西半球の場合は負の値
+  if (ref === 'S' || ref === 'W') {
+    dd = -dd
+  }
+  
+  return dd
 }
 
 /**
@@ -106,8 +177,8 @@ export async function extractExifSimple(file: File): Promise<ExifData> {
     const timestamp = file.lastModified ? new Date(file.lastModified) : new Date()
     
     // デバッグ用のログ
-    console.log(`EXIF extracted for ${file.name}:`, {
-      timestamp,
+    console.log(`⚠ EXIF simple extraction for ${file.name} (no GPS data):`, {
+      timestamp: timestamp.toISOString(),
       size: file.size,
       type: file.type,
     })
