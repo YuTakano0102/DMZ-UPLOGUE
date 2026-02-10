@@ -467,6 +467,11 @@ export default function UploadPage() {
       const result = await response.json()
       console.log('Generated titles:', result.titles)
 
+      // モックモードの場合は警告を表示
+      if (result.mockMode) {
+        console.warn('⚠ Using mock title generation. Configure OPENAI_API_KEY for AI-generated titles.')
+      }
+
       setGeneratedTitles(result.titles)
       setSelectedTitle(result.titles[0] || "")
       setProgress(100)
