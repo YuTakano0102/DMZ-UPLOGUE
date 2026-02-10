@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
       success: true,
       trip: result.trip,
       warnings: result.warnings,
+      impressionTags: result.impressionTags,
     })
   } catch (error) {
     console.error('Trip generation error:', error)

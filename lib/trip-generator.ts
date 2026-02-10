@@ -12,6 +12,7 @@ import {
 } from './exif-utils'
 import { reverseGeocode, extractPrefecture } from './geocoding'
 import type { Spot, Trip } from './mock-data'
+import { generateImpressionTags, type ImpressionTag } from './impression-tags'
 
 export interface TripGenerationInput {
   photos: File[]
@@ -26,6 +27,7 @@ export interface TripGenerationProgress {
 export interface TripGenerationResult {
   trip: Trip
   warnings: string[]
+  impressionTags: ImpressionTag[]
 }
 
 /**
@@ -289,9 +291,13 @@ export async function generateTripFromPhotos(
     message: '完了しました',
   })
 
+  // 印象タグを生成
+  const impressionTags = generateImpressionTags(trip)
+
   return {
     trip,
     warnings,
+    impressionTags,
   }
 }
 
