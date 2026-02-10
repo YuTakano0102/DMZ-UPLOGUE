@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -10,6 +10,8 @@ import { MapLogueMap } from "@/components/maplogue/maplogue-map"
 import type { MapPin } from "@/components/mapbox-map"
 import { useTranslations } from 'next-intl'
 import { LanguageSwitcher } from "@/components/language-switcher"
+import { getAllTrips } from "@/lib/trip-storage"
+import type { Trip } from "@/lib/mock-data"
 
 interface MapSpot {
   id: string
@@ -122,8 +124,52 @@ export default function MapLoguePage() {
   const pathname = usePathname()
   const locale = pathname.split('/')[1]
   const [selectedSpot, setSelectedSpot] = useState<MapSpot | null>(null)
+  const [userTrips, setUserTrips] = useState<Trip[]>([])
 
-  const pins: MapPin[] = mapSpots.map((spot) => ({
+  // localStorageから旅行データを読み込む
+  useEffect(() => {
+    const trips = getAllTrips()
+    setUserTrips(trips)
+    console.log('Loaded user trips for MapLogue:', trips.length)
+  }, [])
+
+  // TripをMapSpotに変換
+  const convertTripToMapSpot = (trip: Trip): MapSpot | null => {
+    // 最初のスポットの座標を使用
+    const firstSpot = trip.spots?.[0]
+    if (!firstSpot) {
+      console.warn('Trip has no spots:', trip.id)
+      return null
+    }
+
+    return {
+      id: trip.id,
+      name: trip.title,
+      location: trip.location,
+      lat: firstSpot.lat,
+      lng: firstSpot.lng,
+      image: trip.coverImage,
+      author: "あなた",
+      isOwn: true,
+      date: new Date(trip.startDate).toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).replace(/\//g, '.'),
+      photoCount: trip.photoCount,
+      tripId: trip.id,
+    }
+  }
+
+  // ユーザーの旅行をMapSpotに変換
+  const userMapSpots = userTrips
+    .map(convertTripToMapSpot)
+    .filter((spot): spot is MapSpot => spot !== null)
+
+  // モックデータとユーザーデータを結合
+  const allMapSpots = [...userMapSpots, ...mapSpots]
+
+  const pins: MapPin[] = allMapSpots.map((spot) => ({
     id: spot.id,
     lng: spot.lng,
     lat: spot.lat,
@@ -138,7 +184,7 @@ export default function MapLoguePage() {
   console.log('MapLogue pins:', pins.map(p => ({ title: p.title, lat: p.lat, lng: p.lng })))
 
   const handlePinClick = (pin: MapPin) => {
-    const spot = mapSpots.find((s) => s.id === pin.id)
+    const spot = allMapSpots.find((s) => s.id === pin.id)
     if (spot) {
       setSelectedSpot(selectedSpot?.id === pin.id ? null : spot)
     }
@@ -155,8 +201,8 @@ export default function MapLoguePage() {
           <div className="flex items-center gap-3">
             <LanguageSwitcher locale={locale} />
             <div className="rounded-full bg-card/80 px-3 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur-sm">
-              {mapSpots.filter((s) => s.isOwn).length} trips /{" "}
-              {mapSpots.filter((s) => !s.isOwn).length} others
+              {allMapSpots.filter((s) => s.isOwn).length} trips /{" "}
+              {allMapSpots.filter((s) => !s.isOwn).length} others
             </div>
           </div>
         </div>
