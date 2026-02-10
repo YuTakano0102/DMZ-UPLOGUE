@@ -144,8 +144,9 @@ export async function generateTripFromPhotos(
           // 代表写真を選定
           const representativePhoto = selectRepresentativePhoto(cluster)
           
-          // 写真URLを生成(実際はS3などにアップロード)
-          const photoUrls = cluster.photos.map((p) => URL.createObjectURL(p.file))
+          // ✅ サーバーでは URL を作らない。参照IDだけ返す
+          const photoIds = cluster.photos.map((p) => p.id)
+          const representativePhotoId = representativePhoto?.id ?? photoIds[0] ?? ""
           
           return {
             spot: {
@@ -156,8 +157,9 @@ export async function generateTripFromPhotos(
               lng: cluster.centerLng,
               arrivalTime: cluster.arrivalTime.toISOString(),
               departureTime: cluster.departureTime.toISOString(),
-              photos: photoUrls,
-              representativePhoto: photoUrls[0],
+              // 👇ここを「URL配列」ではなく「ID配列」にする
+              photos: photoIds as any,               // 既存型に合わせる暫定（後で型を直すのが理想）
+              representativePhoto: representativePhotoId as any,
             },
             geocode,
           }

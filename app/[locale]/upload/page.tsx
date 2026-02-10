@@ -276,11 +276,27 @@ export default function UploadPage() {
         
         console.log('Trip generation result:', result)
         
+        // ✅ クライアント側で photoId → preview(URL) に解決する
+        const previewMap = new Map(photos.map(p => [p.id, p.preview]))
+
+        // spots の photos が photoId 配列になってる前提
+        const tripWithUrls = {
+          ...result.trip,
+          spots: result.trip.spots.map((s: any) => {
+            const urls = (s.photos ?? []).map((id: string) => previewMap.get(id)).filter(Boolean)
+            return {
+              ...s,
+              photos: urls,
+              representativePhoto: urls[0] ?? "",
+            }
+          }),
+        }
+        
         // 生成された旅行記録を保存(localStorageに保存)
         const { saveTrip } = await import("@/lib/trip-storage")
-        saveTrip(result.trip)
+        saveTrip(tripWithUrls)
         
-        setGeneratedTrip(result.trip)
+        setGeneratedTrip(tripWithUrls)
         setWarnings(result.warnings || [])
         setProgress(100)
 
