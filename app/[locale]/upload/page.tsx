@@ -472,6 +472,8 @@ export default function UploadPage() {
       title: selectedTitle || generatedTrip.title,
       // @ts-ignore: optional field
       selectedTagIds: selectedTagIds,
+      // @ts-ignore: タイトル確定済みフラグ
+      titleConfirmed: true,
     }
 
     // localStorageに保存
@@ -486,9 +488,15 @@ export default function UploadPage() {
   const handleSkipTagSelection = async () => {
     if (!generatedTrip) return
 
-    // タグ選択をスキップしてそのまま保存
+    // タグ選択をスキップしてそのまま保存（タイトル未確定として保存）
+    const updatedTrip = {
+      ...generatedTrip,
+      // @ts-ignore: タイトル未確定フラグ
+      titleConfirmed: false,
+    }
+    
     const { saveTrip } = await import("@/lib/trip-storage")
-    saveTrip(generatedTrip)
+    saveTrip(updatedTrip)
 
     setStep("done")
   }

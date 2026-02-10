@@ -5,7 +5,7 @@ import type { Trip } from "@/lib/mock-data"
 import type { UplogueTag } from "@/lib/uplogue-lexicon"
 import { generateTitleSuggestions } from "@/lib/title-generator"
 import { saveTrip } from "@/lib/trip-storage"
-import { Sparkles, Check, PencilLine } from "lucide-react"
+import { Sparkles, Check, PencilLine, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 type Props = {
@@ -37,6 +37,10 @@ function labelForCategory(category: UplogueTag["category"]) {
 export function TitleWizard({ trip, onUpdated }: Props) {
   const tags = (trip.tags ?? []) as UplogueTag[]
 
+  // ウィザードの表示状態（一度確定したら閉じる）
+  // @ts-ignore: optional field
+  const [isOpen, setIsOpen] = useState(!(trip.titleConfirmed ?? false))
+  
   // 選択は最大3
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectedTitle, setSelectedTitle] = useState<string>("")
@@ -95,6 +99,43 @@ export function TitleWizard({ trip, onUpdated }: Props) {
 
     saveTrip(updated)
     onUpdated?.(updated)
+    
+    // 保存後はウィザードを閉じる
+    setIsOpen(false)
+    setMode("pickTags")
+    setSelectedIds([])
+    setSelectedTitle("")
+  }
+
+  // ウィザードが閉じている時の表示
+  if (!isOpen) {
+    return (
+      <div className="mt-6 rounded-2xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold/10">
+              <Sparkles className="h-4 w-4 text-gold" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                {trip.title}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                タイトルを変更できます
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={() => setIsOpen(true)}
+            variant="outline"
+            className="h-9 rounded-lg border-gold/30 text-gold hover:bg-gold/10 hover:text-gold"
+          >
+            <PencilLine className="mr-1.5 h-3.5 w-3.5" />
+            編集
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -112,6 +153,18 @@ export function TitleWizard({ trip, onUpdated }: Props) {
             その3つからタイトル候補を作ります。
           </p>
         </div>
+        <button
+          onClick={() => {
+            setIsOpen(false)
+            setMode("pickTags")
+            setSelectedIds([])
+            setSelectedTitle("")
+          }}
+          className="text-muted-foreground hover:text-foreground"
+          aria-label="閉じる"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Step indicator */}
