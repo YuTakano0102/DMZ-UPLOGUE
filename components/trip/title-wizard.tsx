@@ -37,9 +37,8 @@ function labelForCategory(category: UplogueTag["category"]) {
 export function TitleWizard({ trip, onUpdated }: Props) {
   const tags = (trip.tags ?? []) as UplogueTag[]
 
-  // ウィザードの表示状態（一度確定したら閉じる）
-  // @ts-ignore: optional field
-  const [isOpen, setIsOpen] = useState(!(trip.titleConfirmed ?? false))
+  // ウィザードの表示状態（デフォルトは折りたたみ、ユーザーが編集ボタンを押したら展開）
+  const [isOpen, setIsOpen] = useState(false)
   
   // 選択は最大3
   const [selectedIds, setSelectedIds] = useState<string[]>([])
