@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateTripFromPhotos } from '@/lib/trip-generator'
 
-// Vercel Serverless Functionのタイムアウトを最大に設定（60秒）
+// Vercel Serverless Functionのタイムアウトと実行環境を設定
+export const runtime = "nodejs"
 export const maxDuration = 60
 
 /**
