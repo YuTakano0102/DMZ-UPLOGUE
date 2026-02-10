@@ -17,6 +17,7 @@ import {
 import { Timeline } from "@/components/trip/timeline"
 import { TripMap } from "@/components/trip/trip-map"
 import { ShareDialog } from "@/components/trip/share-dialog"
+import { TitleWizard } from "@/components/trip/title-wizard"
 import { mockTrips } from "@/lib/mock-data"
 import { getTrip } from "@/lib/trip-storage"
 import type { Trip } from "@/lib/mock-data"
@@ -181,6 +182,14 @@ export default function TripDetailPage({
           <>
             {view === "timeline" && (
               <div className="px-4 py-5 pb-8">
+                {/* タイトルウィザード（タグがある場合のみ表示） */}
+                {trip.tags && trip.tags.length >= 5 && (
+                  <TitleWizard 
+                    trip={trip} 
+                    onUpdated={(updatedTrip) => setTrip(updatedTrip)} 
+                  />
+                )}
+                
                 <Timeline
                   spots={trip.spots}
                   activeSpotId={activeSpotId}
