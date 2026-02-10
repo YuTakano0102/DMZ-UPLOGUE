@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { MobileTopBar } from "@/components/mobile-top-bar"
 import { BottomTabBar } from "@/components/bottom-tab-bar"
-import { extractExifSimple, extractExifFromImage } from "@/lib/exif-utils"
+import { extractExifSimple, extractExifFromImage, type ExifData } from "@/lib/exif-utils"
 import type { Trip } from "@/lib/mock-data"
 
 interface MemoryPhoto {
@@ -30,6 +30,7 @@ interface MemoryPhoto {
   preview: string
   hasGps: boolean
   timestamp: Date
+  exif: ExifData // ✅ EXIF情報を保持
 }
 
 type FlowStep = "import" | "detecting" | "review" | "generating" | "done"
@@ -188,6 +189,7 @@ export default function UploadPage() {
               preview: URL.createObjectURL(file),
               hasGps: exif.latitude !== null && exif.longitude !== null,
               timestamp: exif.timestamp || new Date(file.lastModified),
+              exif, // ✅ EXIF情報を保存
             }
             
             newPhotos.push(photo)
@@ -215,6 +217,12 @@ export default function UploadPage() {
               preview: URL.createObjectURL(file),
               hasGps: false,
               timestamp: new Date(file.lastModified),
+              exif: { // ✅ 空のEXIF情報
+                latitude: null,
+                longitude: null,
+                timestamp: null,
+                fileName: file.name,
+              },
             }
             newPhotos.push(photo)
           }
@@ -273,16 +281,24 @@ export default function UploadPage() {
       console.log('Compressing images before upload...')
       const formData = new FormData()
       
+      // ✅ EXIF情報を配列にまとめる（圧縮で失われるため）
+      const exifDataArray: ExifData[] = []
+      
       for (let i = 0; i < photos.length; i++) {
         const photo = photos[i]
         console.log(`Compressing ${i + 1}/${photos.length}: ${photo.file.name} (${(photo.file.size / 1024 / 1024).toFixed(2)}MB)`)
         
         const compressedFile = await compressImage(photo.file)
         console.log(`  → Compressed to ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`)
+        console.log(`  → EXIF: lat=${photo.exif.latitude}, lng=${photo.exif.longitude}`)
         
         formData.append("photos", compressedFile)
         formData.append("photoIds", photo.id)
+        exifDataArray.push(photo.exif)
       }
+      
+      // ✅ EXIF情報をJSON化して送信
+      formData.append("exifData", JSON.stringify(exifDataArray))
       
       console.log('All images compressed successfully')
 

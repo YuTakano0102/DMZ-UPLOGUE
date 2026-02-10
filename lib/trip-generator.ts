@@ -3,7 +3,7 @@
  * F-006: 旅行自動生成機能の実装
  */
 
-import type { PhotoWithExif, PhotoCluster } from './exif-utils'
+import type { PhotoWithExif, PhotoCluster, ExifData } from './exif-utils'
 import type { ReverseGeocodeResult } from './geocoding'
 import {
   extractExifFromImage,
@@ -41,7 +41,8 @@ export interface TripGenerationResult {
 export async function generateTripFromPhotos(
   photos: File[],
   onProgress?: (progress: TripGenerationProgress) => void,
-  photoIds?: string[] // ✅ クライアントから送られてきたIDを使用
+  photoIds?: string[], // ✅ クライアントから送られてきたIDを使用
+  exifDataArray?: ExifData[] // ✅ 圧縮前に抽出したEXIF情報を使用
 ): Promise<TripGenerationResult> {
   const warnings: string[] = []
 
@@ -55,7 +56,19 @@ export async function generateTripFromPhotos(
   const photosWithExif: PhotoWithExif[] = []
   for (let i = 0; i < photos.length; i++) {
     const photo = photos[i]
-    const exif = await extractExifFromImage(photo)
+    
+    // ✅ 渡されたEXIF情報を優先的に使用（圧縮で失われるため）
+    const exif = exifDataArray?.[i] 
+      ? {
+          ...exifDataArray[i],
+          // timestampがstringの場合はDateに変換
+          timestamp: exifDataArray[i].timestamp 
+            ? new Date(exifDataArray[i].timestamp as any)
+            : null
+        }
+      : await extractExifFromImage(photo)
+    
+    console.log(`Photo ${i + 1}: Using ${exifDataArray?.[i] ? 'provided' : 'extracted'} EXIF, GPS=${exif.latitude},${exif.longitude}`)
     
     photosWithExif.push({
       id: photoIds?.[i] ?? `photo-${i}`, // ✅ クライアントのIDを使用
