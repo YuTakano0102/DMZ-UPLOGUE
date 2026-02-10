@@ -1,18 +1,19 @@
 "use client"
 
+import { usePathname } from "next/navigation"
 import Image from "next/image"
 import { Clock, MapPin } from "lucide-react"
 import type { Spot } from "@/lib/mock-data"
 
-function formatTime(isoStr: string) {
-  return new Date(isoStr).toLocaleTimeString("ja-JP", {
+function formatTime(isoStr: string, locale: string) {
+  return new Date(isoStr).toLocaleTimeString(locale === 'ja' ? "ja-JP" : "en-US", {
     hour: "2-digit",
     minute: "2-digit",
   })
 }
 
-function formatDate(isoStr: string) {
-  return new Date(isoStr).toLocaleDateString("ja-JP", {
+function formatDate(isoStr: string, locale: string) {
+  return new Date(isoStr).toLocaleDateString(locale === 'ja' ? "ja-JP" : "en-US", {
     month: "long",
     day: "numeric",
     weekday: "short",
@@ -38,6 +39,8 @@ export function Timeline({
   activeSpotId: string | null
   onSpotClick: (spotId: string) => void
 }) {
+  const pathname = usePathname()
+  const locale = pathname.split('/')[1] || 'ja'
   const grouped = groupSpotsByDate(spots)
 
   return (
@@ -50,7 +53,7 @@ export function Timeline({
               <Clock className="h-3.5 w-3.5 text-primary-foreground" />
             </div>
             <h3 className="text-sm font-semibold text-foreground">
-              {formatDate(daySpots[0].arrivalTime)}
+              {formatDate(daySpots[0].arrivalTime, locale)}
             </h3>
           </div>
 
@@ -94,8 +97,8 @@ export function Timeline({
                     <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
                       <Clock className="h-3 w-3 shrink-0" />
                       <span>
-                        {formatTime(spot.arrivalTime)} -{" "}
-                        {formatTime(spot.departureTime)}
+                        {formatTime(spot.arrivalTime, locale)} -{" "}
+                        {formatTime(spot.departureTime, locale)}
                       </span>
                     </div>
                     <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">

@@ -92,7 +92,9 @@
     "noSpots": "No spot data available",
     "noSpotsSubtitle": "Demo data is being prepared",
     "backToTrips": "Back to trips",
-    "photos": "photos"
+    "photos": "photos",
+    "editTitle": "Edit",
+    "canEditTitle": "You can edit the title"
   },
   "upload": {
     "title": "UpLogue",
@@ -139,7 +141,14 @@
       "subtitle": "Select 3 tags from the 5 detected\nthat resonate with your experience",
       "selectedCount": "{count} / 3 selected",
       "generateButton": "Generate Title",
-      "skipButton": "Skip and Complete"
+      "skipButton": "Skip and Complete",
+      "categories": {
+        "place": "Place",
+        "season": "Season",
+        "time": "Time",
+        "motion": "Motion",
+        "mood": "Mood"
+      }
     },
     "title": {
       "title": "Choose Your Title",
