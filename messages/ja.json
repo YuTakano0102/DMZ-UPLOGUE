@@ -92,7 +92,9 @@
     "noSpots": "スポットデータがありません",
     "noSpotsSubtitle": "デモデータは準備中です",
     "backToTrips": "マイ旅行に戻る",
-    "photos": "枚"
+    "photos": "枚",
+    "editTitle": "編集",
+    "canEditTitle": "タイトルを変更できます"
   },
   "upload": {
     "title": "UpLogue",
@@ -139,7 +141,14 @@
       "subtitle": "写真から読み取った5つのタグから、\nあなたが感じた3つを選んでください",
       "selectedCount": "{count} / 3 個選択済み",
       "generateButton": "タイトルを生成",
-      "skipButton": "スキップして完了"
+      "skipButton": "スキップして完了",
+      "categories": {
+        "place": "場所",
+        "season": "季節",
+        "time": "時間",
+        "motion": "歩き方",
+        "mood": "空気感"
+      }
     },
     "title": {
       "title": "タイトルを選ぶ",

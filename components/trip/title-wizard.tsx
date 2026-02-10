@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { usePathname } from "next/navigation"
+import { useTranslations } from "next-intl"
 import type { Trip } from "@/lib/mock-data"
 import type { UplogueTag } from "@/lib/uplogue-lexicon"
 import { generateTitleSuggestions } from "@/lib/title-generator"
@@ -17,25 +19,17 @@ function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ")
 }
 
-function labelForCategory(category: UplogueTag["category"]) {
-  switch (category) {
-    case "place":
-      return "場所"
-    case "season":
-      return "季節"
-    case "time":
-      return "時間"
-    case "motion":
-      return "歩き方"
-    case "mood":
-      return "空気感"
-    default:
-      return "タグ"
-  }
-}
-
 export function TitleWizard({ trip, onUpdated }: Props) {
+  const pathname = usePathname()
+  const locale = pathname.split('/')[1] || 'ja'
+  const t = useTranslations('trip')
+  const tUpload = useTranslations('upload')
+  
   const tags = (trip.tags ?? []) as UplogueTag[]
+  
+  const labelForCategory = (category: UplogueTag["category"]) => {
+    return tUpload(`tags.categories.${category}`)
+  }
 
   // ウィザードの表示状態（デフォルトは折りたたみ、ユーザーが編集ボタンを押したら展開）
   const [isOpen, setIsOpen] = useState(false)
@@ -120,7 +114,7 @@ export function TitleWizard({ trip, onUpdated }: Props) {
                 {trip.title}
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                タイトルを変更できます
+                {t('canEditTitle')}
               </p>
             </div>
           </div>
@@ -130,7 +124,7 @@ export function TitleWizard({ trip, onUpdated }: Props) {
             className="h-9 rounded-lg border-gold/30 text-gold hover:bg-gold/10 hover:text-gold"
           >
             <PencilLine className="mr-1.5 h-3.5 w-3.5" />
-            編集
+            {t('editTitle')}
           </Button>
         </div>
       </div>
@@ -252,7 +246,7 @@ export function TitleWizard({ trip, onUpdated }: Props) {
           <div className="mt-4 rounded-xl border border-border bg-background p-3">
             <div className="flex items-center gap-2">
               <PencilLine className="h-4 w-4 text-muted-foreground" />
-              <p className="text-xs font-semibold text-foreground">または編集する</p>
+              <p className="text-xs font-semibold text-foreground">{tUpload('title.customLabel')}</p>
             </div>
             <input
               value={customTitle}

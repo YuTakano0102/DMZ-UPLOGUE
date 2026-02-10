@@ -695,13 +695,7 @@ export default function UploadPage() {
                 
                 // カテゴリーバッジの色
                 // カテゴリーラベル
-              const categoryLabel = {
-                place: "場所",
-                season: "季節",
-                time: "時間",
-                motion: "歩き方",
-                mood: "空気感",
-              }[tag.category]
+              const categoryLabel = t(`tags.categories.${tag.category}`)
 
               // カテゴリーバッジの色
               const categoryColor = {
