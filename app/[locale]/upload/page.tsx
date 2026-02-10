@@ -904,7 +904,7 @@ export default function UploadPage() {
               disabled={!selectedTitle}
               className="h-13 w-full rounded-2xl bg-gold text-base font-semibold text-primary hover:bg-gold/90 disabled:opacity-50"
             >
-              このタイトルで保存
+              {t('title.confirmButton')}
             </Button>
           </div>
         )}
