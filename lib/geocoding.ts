@@ -9,12 +9,124 @@ export interface ReverseGeocodeResult {
   place: string
   region: string
   country: string
+
+  // デバッグ用（必要なら使う）
+  rawFeatureTypes?: string[]
+}
+
+type MapboxFeature = {
+  id: string
+  text?: string
+  place_name?: string
+  place_type?: string[]
+  properties?: Record<string, any>
+  context?: Array<{ id: string; text?: string }>
+}
+
+function safeString(s: unknown): string {
+  return typeof s === 'string' ? s : ''
+}
+
+function pickContextText(feature: MapboxFeature, prefix: string) {
+  const hit = feature.context?.find((c) => c.id?.startsWith(prefix))
+  return hit?.text ?? ''
+}
+
+/**
+ * Mapboxのfeaturesから「短くて分かりやすいスポット名」を抽出
+ * 優先順: poi → neighborhood → locality → place → region → address
+ */
+function pickShortName(features: MapboxFeature[]) {
+  const rawFeatureTypes = features
+    .flatMap((f) => f.place_type ?? [])
+    .filter(Boolean)
+
+  const pickByType = (type: string) =>
+    features.find((f) => (f.place_type ?? []).includes(type))
+
+  // 1) poi（施設名）
+  const poi = pickByType('poi')
+  if (poi) {
+    const name =
+      safeString(poi.text) ||
+      safeString(poi.properties?.name) ||
+      '不明なスポット'
+    const address = safeString(poi.place_name) || ''
+    const place = pickContextText(poi, 'place.') || pickContextText(poi, 'locality.')
+    const region = pickContextText(poi, 'region.')
+    const country = pickContextText(poi, 'country.')
+    return { name, address, place, region, country, rawFeatureTypes }
+  }
+
+  // 2) neighborhood（地区）
+  const neighborhood = pickByType('neighborhood')
+  if (neighborhood) {
+    const name = safeString(neighborhood.text) || '不明なスポット'
+    const address = safeString(neighborhood.place_name) || ''
+    const place = pickContextText(neighborhood, 'place.') || pickContextText(neighborhood, 'locality.')
+    const region = pickContextText(neighborhood, 'region.')
+    const country = pickContextText(neighborhood, 'country.')
+    return { name, address, place, region, country, rawFeatureTypes }
+  }
+
+  // 3) locality（町域）
+  const locality = pickByType('locality')
+  if (locality) {
+    const name = safeString(locality.text) || '不明なスポット'
+    const address = safeString(locality.place_name) || ''
+    const place = pickContextText(locality, 'place.') || name
+    const region = pickContextText(locality, 'region.')
+    const country = pickContextText(locality, 'country.')
+    return { name, address, place, region, country, rawFeatureTypes }
+  }
+
+  // 4) place（市区町村）
+  const placeFeature = pickByType('place')
+  if (placeFeature) {
+    const name = safeString(placeFeature.text) || '不明なスポット'
+    const address = safeString(placeFeature.place_name) || ''
+    const place = name
+    const region = pickContextText(placeFeature, 'region.')
+    const country = pickContextText(placeFeature, 'country.')
+    return { name, address, place, region, country, rawFeatureTypes }
+  }
+
+  // 5) region（都道府県）
+  const regionFeature = pickByType('region')
+  if (regionFeature) {
+    const name = safeString(regionFeature.text) || '不明なスポット'
+    const address = safeString(regionFeature.place_name) || ''
+    const place = ''
+    const region = name
+    const country = pickContextText(regionFeature, 'country.')
+    return { name, address, place, region, country, rawFeatureTypes }
+  }
+
+  // 6) address（番地）
+  const addr = pickByType('address')
+  if (addr) {
+    const name = safeString(addr.text) || '不明なスポット'
+    const address = safeString(addr.place_name) || ''
+    const place = pickContextText(addr, 'place.') || pickContextText(addr, 'locality.')
+    const region = pickContextText(addr, 'region.')
+    const country = pickContextText(addr, 'country.')
+    return { name, address, place, region, country, rawFeatureTypes }
+  }
+
+  return {
+    name: '不明なスポット',
+    address: '',
+    place: '',
+    region: '',
+    country: '',
+    rawFeatureTypes,
+  }
 }
 
 /**
  * 逆ジオコーディング: 座標からスポット名・住所を取得
  * Mapbox Geocoding APIを使用
- * 
+ *
  * @param lat 緯度
  * @param lng 経度
  * @returns スポット情報
@@ -37,10 +149,12 @@ export async function reverseGeocode(
     }
   }
 
-  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+  // ✅ サーバー側処理(Route Handler)で使うなら MAPBOX_TOKEN を優先
+  const mapboxToken =
+    process.env.MAPBOX_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
   if (!mapboxToken) {
-    console.error('❌ NEXT_PUBLIC_MAPBOX_TOKEN is not configured')
+    console.error('❌ MAPBOX_TOKEN / NEXT_PUBLIC_MAPBOX_TOKEN is not configured')
     console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('MAPBOX')))
     return {
       name: '不明なスポット',
@@ -65,59 +179,66 @@ export async function reverseGeocode(
   }
 
   try {
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxToken}&language=ja&types=poi,address,place`
-    
+    // ✅ lng,lat の順
+    // ✅ types を拡張して「短い名前候補」を増やす
+    // ✅ limit を上げて features[0] に依存しない
+    const url =
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json` +
+      `?access_token=${mapboxToken}` +
+      `&language=ja` +
+      `&types=poi,neighborhood,locality,place,region,address` +
+      `&limit=6`
+
     console.log('Mapbox API request for:', { lat, lng })
 
     // タイムアウト付きfetch（5秒）
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 5000)
-    
+
     try {
-      const response = await fetch(url, { 
+      const response = await fetch(url, {
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json',
-        }
+          Accept: 'application/json',
+        },
       })
       clearTimeout(timeoutId)
-      
+
       // ✅ レスポンスのContent-Typeをチェック
       const contentType = response.headers.get('content-type')
       console.log(`Mapbox API response: status=${response.status}, content-type=${contentType}`)
-      
+
       if (!response.ok) {
-        // エラー時のレスポンス本文を取得（デバッグ用）
         const errorText = await response.text()
         console.error(`Mapbox API error: ${response.status}`, errorText.substring(0, 200))
         throw new Error(`Mapbox API error: ${response.status}`)
       }
 
-      // ✅ JSON以外のレスポンスを検出
       if (!contentType || !contentType.includes('application/json')) {
         const responseText = await response.text()
         console.error('Mapbox API returned non-JSON response:', responseText.substring(0, 200))
         throw new Error(`Unexpected content-type: ${contentType}`)
       }
 
-      // ✅ JSONパースをtry-catchでラップ
-      let data
+      let data: any
       try {
         data = await response.json()
       } catch (jsonError) {
         console.error('Failed to parse Mapbox API response as JSON:', jsonError)
         throw new Error('Invalid JSON response from Mapbox API')
       }
-      
-      // デバッグ情報をログに出力（簡略版）
+
+      const features: MapboxFeature[] = Array.isArray(data?.features) ? data.features : []
+
       console.log('Mapbox API Response:', {
         lat,
         lng,
-        featuresCount: data.features?.length || 0,
-        firstFeature: data.features?.[0]?.place_name || 'N/A'
+        featuresCount: features.length,
+        firstFeature: features[0]?.place_name || 'N/A',
+        featureTypes: features.map((f) => f.place_type?.join(',') ?? '').slice(0, 6),
       })
 
-      if (!data.features || data.features.length === 0) {
+      if (features.length === 0) {
         return {
           name: '不明なスポット',
           address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
@@ -127,31 +248,22 @@ export async function reverseGeocode(
         }
       }
 
-      const feature = data.features[0]
-      
-      // コンテキスト情報から詳細を抽出
-      const context = feature.context || []
-      const place = context.find((c: any) => c.id.startsWith('place'))?.text || ''
-      const region = context.find((c: any) => c.id.startsWith('region'))?.text || ''
-      const country = context.find((c: any) => c.id.startsWith('country'))?.text || ''
-      
-      console.log('Parsed geocode result:', { 
-        name: feature.text,
-        place, 
-        region, 
-        country,
-      })
+      // ✅ 「短い名前」を抽出
+      const picked = pickShortName(features)
+
+      console.log('Parsed geocode result:', picked)
 
       return {
-        name: feature.text || feature.place_name || '不明なスポット',
-        address: feature.place_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-        place,
-        region,
-        country,
+        name: picked.name || '不明なスポット',
+        address: picked.address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        place: picked.place || '',
+        region: picked.region || '',
+        country: picked.country || '',
+        rawFeatureTypes: picked.rawFeatureTypes,
       }
     } catch (fetchError: any) {
       clearTimeout(timeoutId)
-      
+
       if (fetchError.name === 'AbortError') {
         console.error('Mapbox API timeout after 5 seconds')
         throw new Error('Geocoding timeout')
