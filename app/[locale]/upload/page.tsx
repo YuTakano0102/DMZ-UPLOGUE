@@ -310,6 +310,9 @@ export default function UploadPage() {
       // ✅ EXIF情報をJSON化して送信
       formData.append("exifData", JSON.stringify(exifDataArray))
       
+      // ✅ ロケール情報を送信
+      formData.append("locale", locale)
+      
       console.log('All images compressed successfully')
 
       // 進捗シミュレーション
@@ -445,7 +448,7 @@ export default function UploadPage() {
 
       // ローカルでタイトル生成（テンプレートベース）
       const { generateTitleSuggestions } = await import("@/lib/title-generator")
-      const suggestions = generateTitleSuggestions(selectedTags)
+      const suggestions = generateTitleSuggestions(selectedTags, locale)
       
       console.log('Generated title suggestions:', suggestions)
 

@@ -36,7 +36,7 @@ function pickContextText(feature: MapboxFeature, prefix: string) {
  * Mapboxのfeaturesから「短くて分かりやすいスポット名」を抽出
  * 優先順: poi → neighborhood → locality → place → region → address
  */
-function pickShortName(features: MapboxFeature[]) {
+function pickShortName(features: MapboxFeature[], locale: string = 'ja') {
   const rawFeatureTypes = features
     .flatMap((f) => f.place_type ?? [])
     .filter(Boolean)
@@ -51,6 +51,8 @@ function pickShortName(features: MapboxFeature[]) {
     }))
   })
 
+  const fallbackSpotName = locale === 'en' ? 'Unknown Spot' : '不明なスポット'
+
   const pickByType = (type: string) =>
     features.find((f) => (f.place_type ?? []).includes(type))
 
@@ -60,7 +62,7 @@ function pickShortName(features: MapboxFeature[]) {
     const name =
       safeString(poi.text) ||
       safeString(poi.properties?.name) ||
-      '不明なスポット'
+      fallbackSpotName
     const address = safeString(poi.place_name) || ''
     const place = pickContextText(poi, 'place.') || pickContextText(poi, 'locality.')
     const region = pickContextText(poi, 'region.')
@@ -72,7 +74,7 @@ function pickShortName(features: MapboxFeature[]) {
   // 2) neighborhood（地区）
   const neighborhood = pickByType('neighborhood')
   if (neighborhood) {
-    const name = safeString(neighborhood.text) || '不明なスポット'
+    const name = safeString(neighborhood.text) || fallbackSpotName
     const address = safeString(neighborhood.place_name) || ''
     const place = pickContextText(neighborhood, 'place.') || pickContextText(neighborhood, 'locality.')
     const region = pickContextText(neighborhood, 'region.')
@@ -84,7 +86,7 @@ function pickShortName(features: MapboxFeature[]) {
   // 3) locality（町域）
   const locality = pickByType('locality')
   if (locality) {
-    const name = safeString(locality.text) || '不明なスポット'
+    const name = safeString(locality.text) || fallbackSpotName
     const address = safeString(locality.place_name) || ''
     const place = pickContextText(locality, 'place.') || name
     const region = pickContextText(locality, 'region.')
@@ -96,7 +98,7 @@ function pickShortName(features: MapboxFeature[]) {
   // 4) place（市区町村）
   const placeFeature = pickByType('place')
   if (placeFeature) {
-    const name = safeString(placeFeature.text) || '不明なスポット'
+    const name = safeString(placeFeature.text) || fallbackSpotName
     const address = safeString(placeFeature.place_name) || ''
     const place = name
     const region = pickContextText(placeFeature, 'region.')
@@ -108,7 +110,7 @@ function pickShortName(features: MapboxFeature[]) {
   // 5) region（都道府県）
   const regionFeature = pickByType('region')
   if (regionFeature) {
-    const name = safeString(regionFeature.text) || '不明なスポット'
+    const name = safeString(regionFeature.text) || fallbackSpotName
     const address = safeString(regionFeature.place_name) || ''
     const place = ''
     const region = name
@@ -119,7 +121,7 @@ function pickShortName(features: MapboxFeature[]) {
   // 6) address（番地）
   const addr = pickByType('address')
   if (addr) {
-    const name = safeString(addr.text) || '不明なスポット'
+    const name = safeString(addr.text) || fallbackSpotName
     const address = safeString(addr.place_name) || ''
     const place = pickContextText(addr, 'place.') || pickContextText(addr, 'locality.')
     const region = pickContextText(addr, 'region.')
@@ -130,7 +132,7 @@ function pickShortName(features: MapboxFeature[]) {
   console.log('⚠️ No matching features found, returning fallback')
   
   return {
-    name: '不明なスポット',
+    name: fallbackSpotName,
     address: '',
     place: '',
     region: '',
@@ -149,16 +151,20 @@ function pickShortName(features: MapboxFeature[]) {
  */
 export async function reverseGeocode(
   lat: number,
-  lng: number
+  lng: number,
+  locale: string = 'ja'
 ): Promise<ReverseGeocodeResult> {
+  const fallbackSpotName = locale === 'en' ? 'Unknown Spot' : '不明なスポット'
+  const invalidCoordinatesMsg = locale === 'en' ? 'Invalid coordinates' : '座標が不正です'
+
   // 座標の妥当性チェック
   if (typeof lat !== 'number' || typeof lng !== 'number' || 
       !isFinite(lat) || !isFinite(lng) ||
       lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     console.error('Invalid coordinates provided:', { lat, lng })
     return {
-      name: '不明なスポット',
-      address: '座標が不正です',
+      name: fallbackSpotName,
+      address: invalidCoordinatesMsg,
       place: '',
       region: '',
       country: '',
@@ -173,7 +179,7 @@ export async function reverseGeocode(
     console.error('❌ MAPBOX_TOKEN / NEXT_PUBLIC_MAPBOX_TOKEN is not configured')
     console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('MAPBOX')))
     return {
-      name: '不明なスポット',
+      name: fallbackSpotName,
       address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
       place: '',
       region: '',
@@ -186,7 +192,7 @@ export async function reverseGeocode(
     console.error('❌ Invalid Mapbox token format. Token should start with "pk." or "sk."')
     console.error('Token preview:', mapboxToken.substring(0, 10) + '...')
     return {
-      name: '不明なスポット',
+      name: fallbackSpotName,
       address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
       place: '',
       region: '',
@@ -199,10 +205,13 @@ export async function reverseGeocode(
     // ✅ types を拡張して「短い名前候補」を増やす
     // ⚠️ 注意: 逆ジオコーディングでは limit と複数types を同時に使えない
     //    → limit を削除（デフォルトで複数返る）
+    // Mapbox言語コード: 'ja' または 'en'
+    const language = locale === 'en' ? 'en' : 'ja'
+    
     const url =
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json` +
       `?access_token=${mapboxToken}` +
-      `&language=ja` +
+      `&language=${language}` +
       `&types=poi,neighborhood,locality,place,region,address`
 
     console.log('Mapbox API request for:', { lat, lng })
@@ -257,7 +266,7 @@ export async function reverseGeocode(
 
       if (features.length === 0) {
         return {
-          name: '不明なスポット',
+          name: fallbackSpotName,
           address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
           place: '',
           region: '',
@@ -266,12 +275,12 @@ export async function reverseGeocode(
       }
 
       // ✅ 「短い名前」を抽出
-      const picked = pickShortName(features)
+      const picked = pickShortName(features, locale)
 
       console.log('Parsed geocode result:', picked)
 
       return {
-        name: picked.name || '不明なスポット',
+        name: picked.name || fallbackSpotName,
         address: picked.address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
         place: picked.place || '',
         region: picked.region || '',
@@ -290,7 +299,7 @@ export async function reverseGeocode(
   } catch (error) {
     console.error('Reverse geocoding error:', error)
     return {
-      name: '不明なスポット',
+      name: fallbackSpotName,
       address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
       place: '',
       region: '',

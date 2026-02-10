@@ -20,10 +20,11 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
 
-    // ✅ 写真ファイル、photoIDs、EXIF情報を取得
+    // ✅ 写真ファイル、photoIDs、EXIF情報、ロケールを取得
     const photoFiles = formData.getAll("photos").filter((v): v is File => v instanceof File)
     const photoIds = formData.getAll("photoIds").filter((v): v is string => typeof v === "string")
     const exifDataString = formData.get("exifData")
+    const locale = formData.get("locale") as string | null
 
     if (photoFiles.length === 0) {
       return NextResponse.json(
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 旅行記録を生成
-    const result = await generateTripFromPhotos(photoFiles, undefined, ids, exifDataArray)
+    const result = await generateTripFromPhotos(photoFiles, undefined, ids, exifDataArray, locale || 'ja')
 
     // 成功レスポンス
     // Note: 実際の画像URLはクライアント側でObjectURLを使用
