@@ -23,7 +23,8 @@ import { MobileTopBar } from "@/components/mobile-top-bar"
 import { BottomTabBar } from "@/components/bottom-tab-bar"
 import { extractExifSimple, extractExifFromImage, type ExifData } from "@/lib/exif-utils"
 import type { Trip } from "@/lib/mock-data"
-import type { ImpressionTag } from "@/lib/impression-tags"
+import type { UplogueTag } from "@/lib/uplogue-lexicon"
+import type { TitleSuggestion } from "@/lib/title-generator"
 
 interface MemoryPhoto {
   id: string
@@ -97,9 +98,9 @@ export default function UploadPage() {
   const [warnings, setWarnings] = useState<string[]>([])
   
   // タイトル生成フロー用のstate
-  const [impressionTags, setImpressionTags] = useState<ImpressionTag[]>([])
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [generatedTitles, setGeneratedTitles] = useState<string[]>([])
+  const [uplogueTags, setUplogueTags] = useState<UplogueTag[]>([])
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
+  const [titleSuggestions, setTitleSuggestions] = useState<TitleSuggestion[]>([])
   const [selectedTitle, setSelectedTitle] = useState<string>("")
   const [isEditingTitle, setIsEditingTitle] = useState(false)
 
@@ -379,14 +380,14 @@ export default function UploadPage() {
         setWarnings(result.warnings || [])
         setProgress(100)
 
-        // 印象タグを取得
-        console.log('Received impression tags:', result.impressionTags)
-        setImpressionTags(result.impressionTags || [])
+        // Uplogueタグを取得
+        console.log('Received Uplogue tags:', result.tags)
+        setUplogueTags(result.tags || [])
 
         await new Promise((r) => setTimeout(r, 500))
         
         // タグがある場合はタグ選択画面へ、ない場合は直接完了画面へ
-        if (result.impressionTags && result.impressionTags.length > 0) {
+        if (result.tags && result.tags.length > 0) {
           setStep("tags")
         } else {
           // タグがない場合は旅行記録を保存して完了画面へ
@@ -414,73 +415,48 @@ export default function UploadPage() {
   const formatDate = (d: Date) =>
     `${d.getMonth() + 1}/${d.getDate()}`
 
-  // タグ選択のハンドラ
-  const toggleTag = (tagLabel: string) => {
-    setSelectedTags((prev) => {
-      if (prev.includes(tagLabel)) {
-        return prev.filter((t) => t !== tagLabel)
+  // タグ選択のハンドラ（IDベース）
+  const toggleTag = (tagId: string) => {
+    setSelectedTagIds((prev) => {
+      if (prev.includes(tagId)) {
+        return prev.filter((t) => t !== tagId)
       } else if (prev.length < 3) {
-        return [...prev, tagLabel]
+        return [...prev, tagId]
       }
       return prev
     })
   }
 
-  // タイトル生成のハンドラ
+  // タイトル生成のハンドラ（ローカル生成）
   const handleGenerateTitle = async () => {
-    if (selectedTags.length !== 3) {
+    if (selectedTagIds.length !== 3) {
       setError(t('errors.selectThreeTags'))
       return
     }
 
     setError(null)
-    setStep("title")
     setProgress(0)
 
     try {
-      // 進捗シミュレーション
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => Math.min(prev + 10, 90))
-      }, 200)
+      // 選択されたタグを取得
+      const selectedTags = uplogueTags.filter((tag) => selectedTagIds.includes(tag.id))
+      console.log('Generating titles from selected tags:', selectedTags)
 
-      console.log('Generating titles from tags:', selectedTags)
+      // ローカルでタイトル生成（テンプレートベース）
+      const { generateTitleSuggestions } = await import("@/lib/title-generator")
+      const suggestions = generateTitleSuggestions(selectedTags)
+      
+      console.log('Generated title suggestions:', suggestions)
 
-      const response = await fetch("/api/trips/generate-title", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tags: selectedTags,
-          location: generatedTrip?.location,
-          date: generatedTrip?.startDate,
-        }),
-      })
-
-      clearInterval(progressInterval)
-
-      if (!response.ok) {
-        const result = await response.json()
-        throw new Error(result.error || t('errors.titleGenerateFailed'))
-      }
-
-      const result = await response.json()
-      console.log('Generated titles:', result.titles)
-
-      // モックモードの場合は警告を表示
-      if (result.mockMode) {
-        console.warn('⚠ Using mock title generation. Configure OPENAI_API_KEY for AI-generated titles.')
-      }
-
-      setGeneratedTitles(result.titles)
-      setSelectedTitle(result.titles[0] || "")
+      setTitleSuggestions(suggestions)
+      setSelectedTitle(suggestions[0]?.title || "")
       setProgress(100)
 
       await new Promise((r) => setTimeout(r, 300))
+      setStep("title")
     } catch (err) {
       console.error("Title generation error:", err)
       setError(err instanceof Error ? err.message : t('errors.titleGenerateFailed'))
-      setStep("tags")
       setProgress(0)
     }
   }
@@ -687,14 +663,24 @@ export default function UploadPage() {
 
             {/* タグリスト */}
             <div className="mt-6 flex flex-col gap-3">
-              {impressionTags.map((tag) => {
-                const isSelected = selectedTags.includes(tag.label)
+              {uplogueTags.map((tag) => {
+                const isSelected = selectedTagIds.includes(tag.id)
+                
+                // カテゴリーバッジの色
+                const categoryColor = {
+                  place: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+                  season: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+                  time: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
+                  motion: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
+                  mood: "bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300",
+                }[tag.category]
+
                 return (
                   <button
                     key={tag.id}
-                    onClick={() => toggleTag(tag.label)}
+                    onClick={() => toggleTag(tag.id)}
                     className={`
-                      flex flex-col items-start gap-1 rounded-xl border-2 px-4 py-3 text-left transition-all
+                      flex flex-col items-start gap-2 rounded-xl border-2 px-4 py-3 text-left transition-all
                       ${
                         isSelected
                           ? "border-gold bg-gold/10"
@@ -703,16 +689,23 @@ export default function UploadPage() {
                     `}
                   >
                     <div className="flex w-full items-center justify-between">
-                      <span className="text-base font-semibold text-foreground">
-                        {tag.label}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryColor}`}>
+                          {tag.category}
+                        </span>
+                        <span className="text-base font-semibold text-foreground">
+                          {tag.label}
+                        </span>
+                      </div>
                       {isSelected && (
                         <CheckCircle2 className="h-5 w-5 text-gold" />
                       )}
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {tag.reason}
-                    </span>
+                    {tag.reason && (
+                      <span className="text-xs text-muted-foreground">
+                        {tag.reason}
+                      </span>
+                    )}
                   </button>
                 )
               })}
@@ -721,7 +714,7 @@ export default function UploadPage() {
             {/* 選択数表示 */}
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
-                {t('tags.selectedCount', { count: selectedTags.length })}
+                {t('tags.selectedCount', { count: selectedTagIds.length })}
               </p>
             </div>
           </div>
@@ -731,7 +724,7 @@ export default function UploadPage() {
         <div className="sticky bottom-0 border-t border-border bg-background px-4 py-4">
           <Button
             onClick={handleGenerateTitle}
-            disabled={selectedTags.length !== 3}
+            disabled={selectedTagIds.length !== 3}
             className="h-13 w-full rounded-2xl bg-gold text-base font-semibold text-primary hover:bg-gold/90 disabled:opacity-50"
           >
             <Sparkles className="mr-2 h-5 w-5" />
@@ -749,7 +742,7 @@ export default function UploadPage() {
         <MobileTopBar title="" showBack />
 
         <main className="flex flex-1 flex-col px-6 pt-8">
-          {generatedTitles.length > 0 ? (
+          {titleSuggestions.length > 0 ? (
             <div className="flex flex-col">
               <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-gold/10">
                 <CheckCircle2 className="h-6 w-6 text-gold" />
@@ -775,17 +768,17 @@ export default function UploadPage() {
 
               {/* タイトル候補リスト */}
               <div className="mt-6 flex flex-col gap-3">
-                {generatedTitles.map((title, index) => {
-                  const isSelected = selectedTitle === title
+                {titleSuggestions.map((suggestion, index) => {
+                  const isSelected = selectedTitle === suggestion.title
                   return (
                     <button
                       key={index}
                       onClick={() => {
-                        setSelectedTitle(title)
+                        setSelectedTitle(suggestion.title)
                         setIsEditingTitle(false)
                       }}
                       className={`
-                        rounded-xl border-2 px-4 py-4 text-left transition-all
+                        flex flex-col gap-1 rounded-xl border-2 px-4 py-4 text-left transition-all
                         ${
                           isSelected
                             ? "border-gold bg-gold/10"
@@ -795,12 +788,17 @@ export default function UploadPage() {
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-base font-semibold text-foreground">
-                          {title}
+                          {suggestion.title}
                         </span>
                         {isSelected && (
                           <CheckCircle2 className="h-5 w-5 text-gold" />
                         )}
                       </div>
+                      {suggestion.subtitle && (
+                        <span className="text-xs text-muted-foreground">
+                          {suggestion.subtitle}
+                        </span>
+                      )}
                     </button>
                   )
                 })}
@@ -841,7 +839,7 @@ export default function UploadPage() {
         </main>
 
         {/* 確定ボタン */}
-        {generatedTitles.length > 0 && (
+        {titleSuggestions.length > 0 && (
           <div className="sticky bottom-0 border-t border-border bg-background px-4 py-4">
             <Button
               onClick={handleConfirmTitle}
