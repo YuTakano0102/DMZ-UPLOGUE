@@ -23,6 +23,7 @@ import { MobileTopBar } from "@/components/mobile-top-bar"
 import { BottomTabBar } from "@/components/bottom-tab-bar"
 import { extractExifSimple, extractExifFromImage, type ExifData } from "@/lib/exif-utils"
 import type { Trip } from "@/lib/mock-data"
+import type { ImpressionTag } from "@/lib/impression-tags"
 
 interface MemoryPhoto {
   id: string
@@ -33,7 +34,7 @@ interface MemoryPhoto {
   exif: ExifData // ✅ EXIF情報を保持
 }
 
-type FlowStep = "import" | "detecting" | "review" | "generating" | "done"
+type FlowStep = "import" | "detecting" | "review" | "generating" | "tags" | "title" | "done"
 
 /** Simulate time-of-day bucket */
 function getTimeOfDay(date: Date): "morning" | "afternoon" | "night" {
@@ -94,6 +95,13 @@ export default function UploadPage() {
   const [generatedTrip, setGeneratedTrip] = useState<Trip | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
+  
+  // タイトル生成フロー用のstate
+  const [impressionTags, setImpressionTags] = useState<ImpressionTag[]>([])
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [generatedTitles, setGeneratedTitles] = useState<string[]>([])
+  const [selectedTitle, setSelectedTitle] = useState<string>("")
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
 
   // simulate a detected trip
   const detectedTrip = useMemo(() => {
@@ -366,16 +374,26 @@ export default function UploadPage() {
         // ✅ coverImageを最初のスポットの代表写真に設定
         tripWithUrls.coverImage = tripWithUrls.spots[0]?.representativePhoto ?? ""
         
-        // 生成された旅行記録を保存(localStorageに保存)
-        const { saveTrip } = await import("@/lib/trip-storage")
-        saveTrip(tripWithUrls)
-        
+        // 生成された旅行記録を一時保存
         setGeneratedTrip(tripWithUrls)
         setWarnings(result.warnings || [])
         setProgress(100)
 
+        // 印象タグを取得
+        console.log('Received impression tags:', result.impressionTags)
+        setImpressionTags(result.impressionTags || [])
+
         await new Promise((r) => setTimeout(r, 500))
-        setStep("done")
+        
+        // タグがある場合はタグ選択画面へ、ない場合は直接完了画面へ
+        if (result.impressionTags && result.impressionTags.length > 0) {
+          setStep("tags")
+        } else {
+          // タグがない場合は旅行記録を保存して完了画面へ
+          const { saveTrip } = await import("@/lib/trip-storage")
+          saveTrip(tripWithUrls)
+          setStep("done")
+        }
       } catch (fetchError: any) {
         clearTimeout(timeoutId)
         clearInterval(progressInterval)
@@ -395,6 +413,90 @@ export default function UploadPage() {
 
   const formatDate = (d: Date) =>
     `${d.getMonth() + 1}/${d.getDate()}`
+
+  // タグ選択のハンドラ
+  const toggleTag = (tagLabel: string) => {
+    setSelectedTags((prev) => {
+      if (prev.includes(tagLabel)) {
+        return prev.filter((t) => t !== tagLabel)
+      } else if (prev.length < 3) {
+        return [...prev, tagLabel]
+      }
+      return prev
+    })
+  }
+
+  // タイトル生成のハンドラ
+  const handleGenerateTitle = async () => {
+    if (selectedTags.length !== 3) {
+      setError(t('errors.selectThreeTags'))
+      return
+    }
+
+    setError(null)
+    setStep("title")
+    setProgress(0)
+
+    try {
+      // 進捗シミュレーション
+      const progressInterval = setInterval(() => {
+        setProgress((prev) => Math.min(prev + 10, 90))
+      }, 200)
+
+      console.log('Generating titles from tags:', selectedTags)
+
+      const response = await fetch("/api/trips/generate-title", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tags: selectedTags,
+          location: generatedTrip?.location,
+          date: generatedTrip?.startDate,
+        }),
+      })
+
+      clearInterval(progressInterval)
+
+      if (!response.ok) {
+        const result = await response.json()
+        throw new Error(result.error || t('errors.titleGenerateFailed'))
+      }
+
+      const result = await response.json()
+      console.log('Generated titles:', result.titles)
+
+      setGeneratedTitles(result.titles)
+      setSelectedTitle(result.titles[0] || "")
+      setProgress(100)
+
+      await new Promise((r) => setTimeout(r, 300))
+    } catch (err) {
+      console.error("Title generation error:", err)
+      setError(err instanceof Error ? err.message : t('errors.titleGenerateFailed'))
+      setStep("tags")
+      setProgress(0)
+    }
+  }
+
+  // タイトル確定のハンドラ
+  const handleConfirmTitle = async () => {
+    if (!generatedTrip) return
+
+    // タイトルを更新
+    const updatedTrip = {
+      ...generatedTrip,
+      title: selectedTitle || generatedTrip.title,
+    }
+
+    // localStorageに保存
+    const { saveTrip } = await import("@/lib/trip-storage")
+    saveTrip(updatedTrip)
+
+    setGeneratedTrip(updatedTrip)
+    setStep("done")
+  }
 
   /* ─── Step: Import (initial) ─── */
   if (step === "import") {
@@ -537,6 +639,214 @@ export default function UploadPage() {
             </div>
           </div>
         </main>
+      </div>
+    )
+  }
+
+  /* ─── Step: Tags (タグ選択) ─── */
+  if (step === "tags") {
+    return (
+      <div className="flex min-h-dvh flex-col bg-background">
+        <MobileTopBar title="" showBack />
+
+        <main className="flex flex-1 flex-col px-6 pt-8">
+          <div className="flex flex-col">
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-gold/10">
+              <Sparkles className="h-6 w-6 text-gold" />
+            </div>
+
+            <h2 className="text-xl font-bold text-foreground">
+              {t('tags.title')}
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
+              {t('tags.subtitle')}
+            </p>
+
+            {/* Reality Anchor */}
+            {generatedTrip && (
+              <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+                <MapPin className="h-3 w-3" />
+                <span>
+                  {generatedTrip.location} / {new Date(generatedTrip.startDate).getFullYear()}年
+                  {new Date(generatedTrip.startDate).getMonth() + 1}月
+                </span>
+              </div>
+            )}
+
+            {/* Error message */}
+            {error && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950">
+                <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+              </div>
+            )}
+
+            {/* タグリスト */}
+            <div className="mt-6 flex flex-col gap-3">
+              {impressionTags.map((tag) => {
+                const isSelected = selectedTags.includes(tag.label)
+                return (
+                  <button
+                    key={tag.id}
+                    onClick={() => toggleTag(tag.label)}
+                    className={`
+                      flex flex-col items-start gap-1 rounded-xl border-2 px-4 py-3 text-left transition-all
+                      ${
+                        isSelected
+                          ? "border-gold bg-gold/10"
+                          : "border-border bg-card hover:border-gold/50"
+                      }
+                    `}
+                  >
+                    <div className="flex w-full items-center justify-between">
+                      <span className="text-base font-semibold text-foreground">
+                        {tag.label}
+                      </span>
+                      {isSelected && (
+                        <CheckCircle2 className="h-5 w-5 text-gold" />
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {tag.reason}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 選択数表示 */}
+            <div className="mt-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                {t('tags.selectedCount', { count: selectedTags.length })}
+              </p>
+            </div>
+          </div>
+        </main>
+
+        {/* タイトル生成ボタン */}
+        <div className="sticky bottom-0 border-t border-border bg-background px-4 py-4">
+          <Button
+            onClick={handleGenerateTitle}
+            disabled={selectedTags.length !== 3}
+            className="h-13 w-full rounded-2xl bg-gold text-base font-semibold text-primary hover:bg-gold/90 disabled:opacity-50"
+          >
+            <Sparkles className="mr-2 h-5 w-5" />
+            {t('tags.generateButton')}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  /* ─── Step: Title (タイトル選択・編集) ─── */
+  if (step === "title") {
+    return (
+      <div className="flex min-h-dvh flex-col bg-background">
+        <MobileTopBar title="" showBack />
+
+        <main className="flex flex-1 flex-col px-6 pt-8">
+          {generatedTitles.length > 0 ? (
+            <div className="flex flex-col">
+              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-gold/10">
+                <CheckCircle2 className="h-6 w-6 text-gold" />
+              </div>
+
+              <h2 className="text-xl font-bold text-foreground">
+                {t('title.title')}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
+                {t('title.subtitle')}
+              </p>
+
+              {/* Reality Anchor */}
+              {generatedTrip && (
+                <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  <span>
+                    {generatedTrip.location} / {new Date(generatedTrip.startDate).getFullYear()}年
+                    {new Date(generatedTrip.startDate).getMonth() + 1}月
+                  </span>
+                </div>
+              )}
+
+              {/* タイトル候補リスト */}
+              <div className="mt-6 flex flex-col gap-3">
+                {generatedTitles.map((title, index) => {
+                  const isSelected = selectedTitle === title
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setSelectedTitle(title)
+                        setIsEditingTitle(false)
+                      }}
+                      className={`
+                        rounded-xl border-2 px-4 py-4 text-left transition-all
+                        ${
+                          isSelected
+                            ? "border-gold bg-gold/10"
+                            : "border-border bg-card hover:border-gold/50"
+                        }
+                      `}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-base font-semibold text-foreground">
+                          {title}
+                        </span>
+                        {isSelected && (
+                          <CheckCircle2 className="h-5 w-5 text-gold" />
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* カスタム編集 */}
+              <div className="mt-6">
+                <p className="mb-2 text-sm font-medium text-foreground">
+                  {t('title.customLabel')}
+                </p>
+                <input
+                  type="text"
+                  value={isEditingTitle ? selectedTitle : ""}
+                  onChange={(e) => {
+                    setSelectedTitle(e.target.value)
+                    setIsEditingTitle(true)
+                  }}
+                  onFocus={() => setIsEditingTitle(true)}
+                  placeholder={t('title.customPlaceholder')}
+                  className="w-full rounded-xl border-2 border-border bg-card px-4 py-3 text-base font-semibold text-foreground placeholder:text-muted-foreground focus:border-gold focus:outline-none"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-gold" />
+              <p className="mt-4 text-sm text-muted-foreground">
+                {t('title.generating')}
+              </p>
+              <div className="mt-4 h-1.5 w-48 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-gold transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* 確定ボタン */}
+        {generatedTitles.length > 0 && (
+          <div className="sticky bottom-0 border-t border-border bg-background px-4 py-4">
+            <Button
+              onClick={handleConfirmTitle}
+              disabled={!selectedTitle}
+              className="h-13 w-full rounded-2xl bg-gold text-base font-semibold text-primary hover:bg-gold/90 disabled:opacity-50"
+            >
+              {t('title.confirmButton')}
+            </Button>
+          </div>
+        )}
       </div>
     )
   }

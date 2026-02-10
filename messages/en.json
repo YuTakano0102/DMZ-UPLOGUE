@@ -129,6 +129,20 @@
         "compose": "Composing story"
       }
     },
+    "tags": {
+      "title": "Choose the Essence of This Trip",
+      "subtitle": "Select 3 tags from the 5 detected\nthat resonate with your experience",
+      "selectedCount": "{count} / 3 selected",
+      "generateButton": "Generate Title"
+    },
+    "title": {
+      "title": "Choose Your Title",
+      "subtitle": "Select from 3 options,\nor tap to edit",
+      "customPlaceholder": "Enter title...",
+      "customLabel": "Or, edit it",
+      "confirmButton": "Save with This Title",
+      "generating": "Generating title..."
+    },
     "done": {
       "title": "Trip Record Complete!",
       "subtitle": "A beautiful travel record has been created from {photoCount} photos",
@@ -141,7 +155,9 @@
       "loadFailed": "Failed to load photos",
       "heicGps": "⚠ Could not obtain location data from HEIC format photos",
       "generateFailed": "Failed to generate trip record",
-      "timeout": "Processing timed out. Please try again"
+      "timeout": "Processing timed out. Please try again",
+      "selectThreeTags": "Please select 3 tags",
+      "titleGenerateFailed": "Failed to generate title"
     }
   }
 }

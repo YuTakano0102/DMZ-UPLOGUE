@@ -129,6 +129,20 @@
         "compose": "物語を作成"
       }
     },
+    "tags": {
+      "title": "この旅の核を選ぶ",
+      "subtitle": "写真から読み取った5つのタグから、\nあなたが感じた3つを選んでください",
+      "selectedCount": "{count} / 3 個選択済み",
+      "generateButton": "タイトルを生成"
+    },
+    "title": {
+      "title": "タイトルを選ぶ",
+      "subtitle": "3つの候補から選ぶか、\nタップして編集できます",
+      "customPlaceholder": "タイトルを入力...",
+      "customLabel": "または、編集する",
+      "confirmButton": "このタイトルで保存",
+      "generating": "タイトルを生成中..."
+    },
     "done": {
       "title": "旅行記録が完成しました！",
       "subtitle": "{photoCount}枚の写真から素敵な旅の記録が生まれました",
@@ -141,7 +155,9 @@
       "loadFailed": "写真の読み込みに失敗しました",
       "heicGps": "⚠ HEIC形式の写真から位置情報を取得できませんでした",
       "generateFailed": "旅行記録の生成に失敗しました",
-      "timeout": "処理がタイムアウトしました。もう一度お試しください"
+      "timeout": "処理がタイムアウトしました。もう一度お試しください",
+      "selectThreeTags": "タグを3つ選択してください",
+      "titleGenerateFailed": "タイトル生成に失敗しました"
     }
   }
 }
