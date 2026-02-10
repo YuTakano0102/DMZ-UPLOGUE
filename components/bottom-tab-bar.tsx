@@ -5,15 +5,17 @@ import { usePathname } from "next/navigation"
 import { Home, Globe, Plus, BookOpen, User } from "lucide-react"
 
 const tabs = [
-  { href: "/home", icon: Home, label: "Home" },
-  { href: "/maplogue", icon: Globe, label: "MapLogue" },
-  { href: "/upload", icon: Plus, label: "UpLogue", isCenter: true },
-  { href: "/mylogue", icon: BookOpen, label: "MyLogue" },
-  { href: "/profile", icon: User, label: "Profile" },
+  { href: "home", icon: Home, label: "Home" },
+  { href: "maplogue", icon: Globe, label: "MapLogue" },
+  { href: "upload", icon: Plus, label: "UpLogue", isCenter: true },
+  { href: "mylogue", icon: BookOpen, label: "MyLogue" },
+  { href: "profile", icon: User, label: "Profile" },
 ]
 
 export function BottomTabBar() {
   const pathname = usePathname()
+  // Extract locale from pathname (e.g., /ja/home -> ja)
+  const locale = pathname.split('/')[1] || 'ja'
 
   return (
     <nav
@@ -22,14 +24,15 @@ export function BottomTabBar() {
     >
       <div className="flex items-end justify-around px-1 pb-1 pt-1.5">
         {tabs.map((tab) => {
+          const fullHref = `/${locale}/${tab.href}`
           const isActive =
-            pathname === tab.href || pathname.startsWith(tab.href + "/")
+            pathname === fullHref || pathname.startsWith(fullHref + "/")
 
           if (tab.isCenter) {
             return (
               <Link
                 key={tab.href}
-                href={tab.href}
+                href={fullHref}
                 className="flex flex-col items-center gap-0.5 px-2"
               >
                 <div className="-mt-5 flex h-12 w-12 items-center justify-center rounded-full bg-gold shadow-lg shadow-gold/25 active:scale-95 active:bg-gold/90">
@@ -45,7 +48,7 @@ export function BottomTabBar() {
           return (
             <Link
               key={tab.href}
-              href={tab.href}
+              href={fullHref}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 ${
                 isActive ? "text-gold" : "text-muted-foreground"
               }`}

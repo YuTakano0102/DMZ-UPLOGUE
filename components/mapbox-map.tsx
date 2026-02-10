@@ -1,7 +1,6 @@
 "use client"
 
 import React from "react"
-
 import { useEffect, useRef, useState } from "react"
 import mapboxgl from "mapbox-gl"
 
@@ -109,16 +108,9 @@ export function MapboxMap({
 
   // Add / update pins
   useEffect(() => {
-    console.log('=== Mapbox useEffect triggered ===')
-    console.log('mapReady:', mapReady)
-    console.log('pins:', pins)
-    
     if (!map.current || !mapReady) {
-      console.log('Map not ready yet, skipping marker creation')
       return
     }
-
-    console.log('Creating markers for', pins.length, 'pins')
 
     // Clear old markers
     for (const m of markersRef.current) {
@@ -132,25 +124,12 @@ export function MapboxMap({
       const spotNumber = i + 1
       const shouldShowNumber = pin.showNumber !== false && showRoute
       
-      // Debug log
-      console.log(`Creating marker ${spotNumber}: ${pin.title}`, {
-        lng: pin.lng,
-        lat: pin.lat,
-        coordinates: [pin.lng, pin.lat],
-        showPermanentLabels,
-        hasImage: !!pin.image,
-        willUseCardStyle: showPermanentLabels && !!pin.image
-      })
-      
       // Custom marker element
       const el = document.createElement("div")
       el.style.cursor = "pointer"
-      el.style.position = "relative"
-      
-      let marker: mapboxgl.Marker
       
       if (showPermanentLabels && pin.image) {
-        // Permanent label with image and title - simple structure
+        // Permanent label with image - card style
         el.style.display = "flex"
         el.style.flexDirection = "column"
         el.style.alignItems = "center"
@@ -158,13 +137,13 @@ export function MapboxMap({
         
         el.innerHTML = `
           <div style="
-            background: white;
+            background: rgba(255,255,255,0.95);
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             overflow: hidden;
             border: 2px solid ${pin.color || "#2E3A59"};
             width: 100%;
-            margin-bottom: 4px;
+            backdrop-filter: blur(10px);
           ">
             <img 
               src="${pin.image}" 
@@ -180,7 +159,7 @@ export function MapboxMap({
               <div style="
                 font-size: 11px;
                 font-weight: 600;
-                color: #2A2A2A;
+                color: #000;
                 line-height: 1.3;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -188,39 +167,52 @@ export function MapboxMap({
                 -webkit-line-clamp: 2;
                 -webkit-box-orient: vertical;
               ">${pin.title}</div>
+              ${pin.subtitle ? `<div style="
+                font-size: 11px;
+                color: rgba(0,0,0,0.6);
+                margin-top: 2px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              ">${pin.subtitle}</div>` : ''}
             </div>
           </div>
-          <svg width="16" height="8" viewBox="0 0 16 8" style="display: block;">
-            <polygon points="8,8 0,0 16,0" fill="${pin.color || "#2E3A59"}"/>
-          </svg>
+          <div style="display: flex; justify-content: center; padding-bottom: 4px;">
+            <svg width="16" height="8" viewBox="0 0 16 8">
+              <polygon points="8,8 0,0 16,0" fill="${pin.color || "#2E3A59"}"/>
+            </svg>
+          </div>
         `
         
-        // Set anchor to bottom center
-        marker = new mapboxgl.Marker({ 
+        // ★ 重要：anchor を 'bottom' に設定
+        const marker = new mapboxgl.Marker({ 
           element: el,
           anchor: 'bottom'
         })
           .setLngLat([pin.lng, pin.lat])
           .addTo(map.current!)
+
+        markersRef.current.push(marker)
       } else {
         // Regular pin marker with optional number
-        el.style.width = "36px"
-        el.style.height = "40px"
         el.innerHTML = `
-          <svg width="36" height="40" viewBox="0 0 36 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="18" cy="16" r="12" fill="${pin.color || "#2E3A59"}" fillOpacity="0.15"/>
+          <svg width="36" height="40" viewBox="0 0 36 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+            <circle cx="18" cy="16" r="12" fill="${pin.color || "#2E3A59"}" fill-opacity="0.15"/>
             <circle cx="18" cy="16" r="7" fill="${pin.color || "#2E3A59"}"/>
             ${shouldShowNumber ? `<text x="18" y="16" text-anchor="middle" dominant-baseline="central" fill="white" font-size="10" font-weight="600" font-family="sans-serif">${spotNumber}</text>` : ''}
-            <line x1="18" y1="23" x2="18" y2="40" stroke="${pin.color || "#2E3A59"}" strokeWidth="2" strokeLinecap="round"/>
+            <line x1="18" y1="23" x2="18" y2="40" stroke="${pin.color || "#2E3A59"}" stroke-width="2" stroke-linecap="round"/>
           </svg>
         `
         
-        marker = new mapboxgl.Marker({ 
+        // ★ 重要：anchor を 'bottom' に設定
+        const marker = new mapboxgl.Marker({ 
           element: el,
           anchor: 'bottom'
         })
           .setLngLat([pin.lng, pin.lat])
           .addTo(map.current!)
+
+        markersRef.current.push(marker)
       }
 
       if (onPinClick) {
@@ -244,6 +236,8 @@ export function MapboxMap({
           ? `${formatTime(pin.arrivalTime)} - ${formatTime(pin.departureTime)}`
           : ""
 
+        const lastMarker = markersRef.current[markersRef.current.length - 1]
+        
         const popup = new mapboxgl.Popup({
           offset: 20,
           closeButton: false,
@@ -258,25 +252,23 @@ export function MapboxMap({
         )
 
         el.addEventListener("mouseenter", () => {
-          marker.setPopup(popup)
-          marker.togglePopup()
+          lastMarker.setPopup(popup)
+          lastMarker.togglePopup()
         })
         el.addEventListener("mouseleave", () => {
-          marker.togglePopup()
+          lastMarker.togglePopup()
         })
 
         // Also show on touch
         el.addEventListener("touchstart", () => {
-          marker.setPopup(popup)
-          if (!marker.getPopup()?.isOpen()) {
-            marker.togglePopup()
+          lastMarker.setPopup(popup)
+          if (!lastMarker.getPopup()?.isOpen()) {
+            lastMarker.togglePopup()
           }
         })
       }
-
-      markersRef.current.push(marker)
     }
-  }, [pins, mapReady, onPinClick])
+  }, [pins, mapReady, onPinClick, showPermanentLabels, showRoute])
 
   // Draw route line connecting pins in order
   useEffect(() => {

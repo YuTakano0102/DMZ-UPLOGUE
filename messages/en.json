@@ -1,0 +1,147 @@
+{
+  "landing": {
+    "hero": {
+      "title": "Your travel memories\nbecome someone's next journey.",
+      "subtitle": "Simply upload your photos,\nand your travel moments will quietly align.",
+      "cta": "Start your journey"
+    },
+    "memories": {
+      "title": "Fragments of someone's journey"
+    },
+    "softCta": {
+      "text": "Why not preserve\nyour journey here too?"
+    }
+  },
+  "common": {
+    "login": "Login",
+    "register": "Start your journey",
+    "copyright": "© 2025 Uplogue"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Log in to your account to continue your journey",
+      "email": "Email address",
+      "password": "Password",
+      "submit": "Login",
+      "divider": "or",
+      "googleLogin": "Login with Google",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign up for free",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password"
+    },
+    "register": {
+      "title": "Start your journey",
+      "subtitle": "Create an account to record your travels",
+      "name": "Name",
+      "email": "Email address",
+      "password": "Password",
+      "submit": "Sign up",
+      "divider": "or",
+      "googleSignup": "Sign up with Google",
+      "haveAccount": "Already have an account?",
+      "signIn": "Login",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password"
+    }
+  },
+  "profile": {
+    "title": "My Page",
+    "trips": "Trips",
+    "spots": "Spots",
+    "photos": "Photos",
+    "notifications": "Notifications",
+    "privacy": "Privacy",
+    "account": "Account",
+    "help": "Help & Support",
+    "logout": "Logout"
+  },
+  "dashboard": {
+    "trips": "Trips",
+    "spots": "Spots",
+    "photos": "Photos",
+    "yourTrips": "Your Trips"
+  },
+  "mylogue": {
+    "title": "MyLogue",
+    "trips": "Trips",
+    "spots": "Spots",
+    "photos": "Photos",
+    "yourArchive": "Your Archive",
+    "noTrips": "No travel records yet",
+    "noTripsSubtitle": "Upload photos to create your travel memories"
+  },
+  "maplogue": {
+    "title": "MapLogue",
+    "yourSpots": "Your Spots",
+    "othersSpots": "Others' Spots",
+    "photos": "photos"
+  },
+  "trip": {
+    "loading": "Loading...",
+    "back": "Back",
+    "share": "Share",
+    "timeline": "Timeline",
+    "map": "Map",
+    "noSpots": "No spot data available",
+    "noSpotsSubtitle": "Demo data is being prepared",
+    "backToTrips": "Back to trips",
+    "photos": "photos"
+  },
+  "upload": {
+    "title": "UpLogue",
+    "import": {
+      "title": "Upload Photos",
+      "subtitle": "Select your travel memories",
+      "selectButton": "Choose Photos",
+      "hint": "Supports JPEG, PNG, HEIC formats (up to 50 photos)",
+      "heicWarning": "⚠ Location data may not be available for HEIC format photos"
+    },
+    "detecting": {
+      "title": "Analyzing photos...",
+      "subtitle": "Analyzing {count} photos",
+      "loading": "Loading...",
+      "wait": "Please wait"
+    },
+    "review": {
+      "title": "Review Your Journey",
+      "tripDetected": "Trip Detected",
+      "period": "Period",
+      "location": "Location detected",
+      "locationUnknown": "Unknown",
+      "locationConfidence": "GPS detected",
+      "locationNone": "No location",
+      "photos": "Photos",
+      "photoCount": "{count} photos",
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "night": "Night",
+      "description": "Review photos grouped by time of day\nand generate your travel record",
+      "generateButton": "Generate Trip Record"
+    },
+    "generating": {
+      "title": "Generating trip record...",
+      "subtitle": "AI is weaving your travel story",
+      "steps": {
+        "arrange": "Organizing photos",
+        "identify": "Identifying locations",
+        "compose": "Composing story"
+      }
+    },
+    "done": {
+      "title": "Trip Record Complete!",
+      "subtitle": "A beautiful travel record has been created from {photoCount} photos",
+      "warnings": "⚠ Location data could not be obtained for some photos",
+      "viewButton": "View Trip Record",
+      "backButton": "Back to Home"
+    },
+    "errors": {
+      "noFiles": "No files selected",
+      "loadFailed": "Failed to load photos",
+      "heicGps": "⚠ Could not obtain location data from HEIC format photos",
+      "generateFailed": "Failed to generate trip record",
+      "timeout": "Processing timed out. Please try again"
+    }
+  }
+}

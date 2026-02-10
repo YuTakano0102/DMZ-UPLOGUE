@@ -1,0 +1,147 @@
+{
+  "landing": {
+    "hero": {
+      "title": "あなたの旅の記録が、\n誰かの次の旅になる。",
+      "subtitle": "写真をアップロードするだけで、\n旅の時間が静かに並びはじめます。",
+      "cta": "旅をはじめる"
+    },
+    "memories": {
+      "title": "誰かの旅の断片"
+    },
+    "softCta": {
+      "text": "あなたの旅も、\nここに残しませんか。"
+    }
+  },
+  "common": {
+    "login": "ログイン",
+    "register": "旅をはじめる",
+    "copyright": "© 2025 Uplogue"
+  },
+  "auth": {
+    "login": {
+      "title": "おかえりなさい",
+      "subtitle": "アカウントにログインして旅を続けましょう",
+      "email": "メールアドレス",
+      "password": "パスワード",
+      "submit": "ログイン",
+      "divider": "または",
+      "googleLogin": "Googleでログイン",
+      "noAccount": "アカウントをお持ちでないですか？",
+      "signUp": "無料で登録",
+      "showPassword": "パスワードを表示",
+      "hidePassword": "パスワードを隠す"
+    },
+    "register": {
+      "title": "旅をはじめる",
+      "subtitle": "アカウントを作成して、あなたの旅を記録しましょう",
+      "name": "お名前",
+      "email": "メールアドレス",
+      "password": "パスワード",
+      "submit": "登録する",
+      "divider": "または",
+      "googleSignup": "Googleで登録",
+      "haveAccount": "すでにアカウントをお持ちですか？",
+      "signIn": "ログイン",
+      "showPassword": "パスワードを表示",
+      "hidePassword": "パスワードを隠す"
+    }
+  },
+  "profile": {
+    "title": "マイページ",
+    "trips": "旅行",
+    "spots": "スポット",
+    "photos": "写真",
+    "notifications": "通知設定",
+    "privacy": "プライバシー設定",
+    "account": "アカウント設定",
+    "help": "ヘルプ・お問い合わせ",
+    "logout": "ログアウト"
+  },
+  "dashboard": {
+    "trips": "旅行",
+    "spots": "スポット",
+    "photos": "写真",
+    "yourTrips": "あなたの旅"
+  },
+  "mylogue": {
+    "title": "MyLogue",
+    "trips": "旅行",
+    "spots": "スポット",
+    "photos": "写真",
+    "yourArchive": "あなたのアーカイブ",
+    "noTrips": "まだ旅行記録がありません",
+    "noTripsSubtitle": "写真をアップロードして旅の記録を作りましょう"
+  },
+  "maplogue": {
+    "title": "MapLogue",
+    "yourSpots": "あなたのスポット",
+    "othersSpots": "他の人のスポット",
+    "photos": "枚の写真"
+  },
+  "trip": {
+    "loading": "読み込み中...",
+    "back": "戻る",
+    "share": "共有",
+    "timeline": "タイムライン",
+    "map": "地図",
+    "noSpots": "スポットデータがありません",
+    "noSpotsSubtitle": "デモデータは準備中です",
+    "backToTrips": "マイ旅行に戻る",
+    "photos": "枚"
+  },
+  "upload": {
+    "title": "UpLogue",
+    "import": {
+      "title": "写真をアップロード",
+      "subtitle": "旅の思い出を選択してください",
+      "selectButton": "写真を選択",
+      "hint": "JPEG、PNG、HEIC形式に対応（最大50枚）",
+      "heicWarning": "⚠ HEIC形式の写真は位置情報が取得できない場合があります"
+    },
+    "detecting": {
+      "title": "写真を解析中...",
+      "subtitle": "{count}枚の写真を分析しています",
+      "loading": "読み込み中...",
+      "wait": "しばらくお待ちください"
+    },
+    "review": {
+      "title": "旅の記録を確認",
+      "tripDetected": "旅行を検出",
+      "period": "期間",
+      "location": "位置情報を検出",
+      "locationUnknown": "不明",
+      "locationConfidence": "GPS検出済み",
+      "locationNone": "位置情報なし",
+      "photos": "写真",
+      "photoCount": "{count}枚",
+      "morning": "朝",
+      "afternoon": "午後",
+      "night": "夜",
+      "description": "時間帯ごとに分類された写真を確認して、\n旅行記録を生成できます",
+      "generateButton": "旅行記録を生成"
+    },
+    "generating": {
+      "title": "旅行記録を生成中...",
+      "subtitle": "AIが旅の物語を紡いでいます",
+      "steps": {
+        "arrange": "写真を整理",
+        "identify": "場所を特定",
+        "compose": "物語を作成"
+      }
+    },
+    "done": {
+      "title": "旅行記録が完成しました！",
+      "subtitle": "{photoCount}枚の写真から素敵な旅の記録が生まれました",
+      "warnings": "⚠ 一部の写真で位置情報を取得できませんでした",
+      "viewButton": "旅行記録を見る",
+      "backButton": "ホームに戻る"
+    },
+    "errors": {
+      "noFiles": "ファイルが選択されていません",
+      "loadFailed": "写真の読み込みに失敗しました",
+      "heicGps": "⚠ HEIC形式の写真から位置情報を取得できませんでした",
+      "generateFailed": "旅行記録の生成に失敗しました",
+      "timeout": "処理がタイムアウトしました。もう一度お試しください"
+    }
+  }
+}

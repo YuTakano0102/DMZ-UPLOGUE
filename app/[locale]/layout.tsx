@@ -1,8 +1,11 @@
 import React from "react"
 import type { Metadata, Viewport } from "next"
 import { DM_Sans, Noto_Sans_JP } from "next/font/google"
-
-import "./globals.css"
+import {NextIntlClientProvider} from 'next-intl';
+import {setRequestLocale} from 'next-intl/server';
+import {notFound} from 'next/navigation';
+import {routing} from '@/i18n/routing';
+import '@/app/globals.css';
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -34,24 +37,46 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 }
 
-export default function RootLayout({
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({locale}));
+}
+
+export default async function LocaleLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+  params
+}: {
+  children: React.ReactNode;
+  params: Promise<{locale: string}>;
+}) {
+  const {locale} = await params;
+
+  if (!routing.locales.includes(locale as any)) {
+    notFound();
+  }
+
+  setRequestLocale(locale);
+
+  // 防衛的：undefined.json回避
+  let messages: Record<string, any>;
+  try {
+    messages = (await import(`../../messages/${locale}.json`)).default;
+  } catch {
+    notFound();
+  }
+
   return (
-    <html lang="ja">
+    <html lang={locale}>
       <head>
         <link
           href="https://api.mapbox.com/mapbox-gl-js/v3.9.3/mapbox-gl.css"
           rel="stylesheet"
         />
       </head>
-      <body
-        className={`${dmSans.variable} ${notoSansJP.variable} font-sans antialiased`}
-      >
-        {children}
+      <body className={`${dmSans.variable} ${notoSansJP.variable} font-sans antialiased`}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          {children}
+        </NextIntlClientProvider>
       </body>
     </html>
-  )
+  );
 }

@@ -1,6 +1,8 @@
+import {getTranslations, setRequestLocale} from 'next-intl/server';
 import Link from "next/link"
 import Image from "next/image"
 import { UplogueLogo } from "@/components/uplogue-logo"
+import { LanguageSwitcher } from "@/components/language-switcher"
 
 const memories = [
   {
@@ -33,7 +35,17 @@ const memories = [
   },
 ]
 
-export default function LandingPage() {
+export default async function LandingPage({
+  params
+}: {
+  params: Promise<{locale: string}>;
+}) {
+  const {locale} = await params;
+  setRequestLocale(locale);
+
+  const t = await getTranslations('landing');
+  const common = await getTranslations('common');
+
   return (
     <div className="flex min-h-dvh flex-col" style={{ backgroundColor: "#F7F6F4" }}>
       {/* ── 1. 景色（Hero）── */}
@@ -65,42 +77,45 @@ export default function LandingPage() {
           }}
         >
           <UplogueLogo size={22} showText textColor="text-[#2A2A2A]" />
-          <Link
-            href="/login"
-            className="text-xs tracking-wide"
-            style={{ color: "#2A2A2A", opacity: 0.5 }}
-          >
-            ログイン
-          </Link>
+          <div className="flex items-center gap-4">
+            <LanguageSwitcher 
+              locale={locale} 
+              className="text-xs tracking-wide"
+              style={{ color: "#2A2A2A", opacity: 0.5 }}
+            />
+            <Link
+              href={`/${locale}/login`}
+              className="text-xs tracking-wide"
+              style={{ color: "#2A2A2A", opacity: 0.5 }}
+            >
+              {common('login')}
+            </Link>
+          </div>
         </header>
 
         {/* Hero copy */}
         <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-12">
           <h1
             className="animate-fade-in-up-slow animate-delay-300 text-balance text-2xl font-medium leading-relaxed"
-            style={{ color: "#2A2A2A", lineHeight: 1.7 }}
+            style={{ color: "#2A2A2A", lineHeight: 1.7, whiteSpace: 'pre-line' }}
           >
-            あなたの旅の記録が、
-            <br />
-            誰かの次の旅になる。
+            {t('hero.title')}
           </h1>
 
           <p
             className="animate-fade-in-up-slow animate-delay-600 mt-4 text-sm leading-loose"
-            style={{ color: "#2A2A2A", opacity: 0.55 }}
+            style={{ color: "#2A2A2A", opacity: 0.55, whiteSpace: 'pre-line' }}
           >
-            写真をアップロードするだけで、
-            <br />
-            旅の時間が静かに並びはじめます。
+            {t('hero.subtitle')}
           </p>
 
           <div className="animate-fade-in-up-slow animate-delay-900 mt-8 flex flex-col gap-3">
             <Link
-              href="/register"
+              href={`/${locale}/register`}
               className="flex h-12 items-center justify-center rounded-full text-sm font-medium tracking-wide text-card"
               style={{ backgroundColor: "#C6922C" }}
             >
-              旅をはじめる
+              {t('hero.cta')}
             </Link>
           </div>
         </div>
@@ -112,7 +127,7 @@ export default function LandingPage() {
           className="text-xs tracking-widest"
           style={{ color: "#2A2A2A", opacity: 0.4 }}
         >
-          誰かの旅の断片
+          {t('memories.title')}
         </p>
 
         <div className="mt-8 flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
@@ -156,26 +171,24 @@ export default function LandingPage() {
       <section className="px-6 pb-20 pt-8 text-center">
         <p
           className="text-lg font-medium leading-loose"
-          style={{ color: "#2A2A2A" }}
+          style={{ color: "#2A2A2A", whiteSpace: 'pre-line' }}
         >
-          あなたの旅も、
-          <br />
-          ここに残しませんか。
+          {t('softCta.text')}
         </p>
 
         <Link
-          href="/register"
+          href={`/${locale}/register`}
           className="mt-8 inline-flex h-12 items-center justify-center rounded-full px-10 text-sm font-medium tracking-wide text-card"
           style={{ backgroundColor: "#C6922C" }}
         >
-          旅をはじめる
+          {t('hero.cta')}
         </Link>
       </section>
 
       {/* ── 4. 静かな余白（Footer）── */}
       <footer className="pb-8 pt-4 text-center safe-bottom">
         <p className="text-[10px] tracking-wide" style={{ color: "#2A2A2A", opacity: 0.25 }}>
-          &copy; 2025 Uplogue
+          {common('copyright')}
         </p>
       </footer>
     </div>

@@ -1,22 +1,29 @@
+'use client'
+
 import Image from "next/image"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { MapPin, Camera, Calendar, Globe, Lock } from "lucide-react"
 import type { Trip } from "@/lib/mock-data"
 
-function formatDateRange(start: string, end: string) {
+function formatDateRange(start: string, end: string, locale: string) {
   const s = new Date(start)
   const e = new Date(end)
   const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" }
+  const localeCode = locale === 'ja' ? "ja-JP" : "en-US"
   if (start === end) {
-    return s.toLocaleDateString("ja-JP", { ...opts, year: "numeric" })
+    return s.toLocaleDateString(localeCode, { ...opts, year: "numeric" })
   }
-  return `${s.toLocaleDateString("ja-JP", { ...opts, year: "numeric" })} - ${e.toLocaleDateString("ja-JP", opts)}`
+  return `${s.toLocaleDateString(localeCode, { ...opts, year: "numeric" })} - ${e.toLocaleDateString(localeCode, opts)}`
 }
 
 export function TripCard({ trip }: { trip: Trip }) {
+  const pathname = usePathname()
+  const locale = pathname.split('/')[1] || 'ja'
+  
   return (
     <Link
-      href={`/trips/${trip.id}`}
+      href={`/${locale}/trips/${trip.id}`}
       className="group flex gap-4 rounded-2xl border border-border bg-card p-3 active:bg-muted"
     >
       {/* Thumbnail */}
@@ -29,7 +36,7 @@ export function TripCard({ trip }: { trip: Trip }) {
         />
         <span
           className="absolute right-1 top-1 rounded-full bg-card/90 p-1"
-          title={trip.isPublic ? "公開" : "非公開"}
+          title={trip.isPublic ? (locale === 'ja' ? "公開" : "Public") : (locale === 'ja' ? "非公開" : "Private")}
         >
           {trip.isPublic ? (
             <Globe className="h-3 w-3 text-gold" />
@@ -47,7 +54,7 @@ export function TripCard({ trip }: { trip: Trip }) {
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Calendar className="h-3 w-3 shrink-0" />
           <span className="truncate">
-            {formatDateRange(trip.startDate, trip.endDate)}
+            {formatDateRange(trip.startDate, trip.endDate, locale)}
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground/70">
