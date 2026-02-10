@@ -40,7 +40,21 @@ export async function reverseGeocode(
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
   if (!mapboxToken) {
-    console.warn('Mapbox token not configured')
+    console.error('❌ NEXT_PUBLIC_MAPBOX_TOKEN is not configured')
+    console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('MAPBOX')))
+    return {
+      name: '不明なスポット',
+      address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+      place: '',
+      region: '',
+      country: '',
+    }
+  }
+  
+  // トークンの形式チェック（pk. または sk. で始まるべき）
+  if (!mapboxToken.startsWith('pk.') && !mapboxToken.startsWith('sk.')) {
+    console.error('❌ Invalid Mapbox token format. Token should start with "pk." or "sk."')
+    console.error('Token preview:', mapboxToken.substring(0, 10) + '...')
     return {
       name: '不明なスポット',
       address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
@@ -68,12 +82,32 @@ export async function reverseGeocode(
       })
       clearTimeout(timeoutId)
       
+      // ✅ レスポンスのContent-Typeをチェック
+      const contentType = response.headers.get('content-type')
+      console.log(`Mapbox API response: status=${response.status}, content-type=${contentType}`)
+      
       if (!response.ok) {
-        console.error(`Mapbox API error: ${response.status}`)
+        // エラー時のレスポンス本文を取得（デバッグ用）
+        const errorText = await response.text()
+        console.error(`Mapbox API error: ${response.status}`, errorText.substring(0, 200))
         throw new Error(`Mapbox API error: ${response.status}`)
       }
 
-      const data = await response.json()
+      // ✅ JSON以外のレスポンスを検出
+      if (!contentType || !contentType.includes('application/json')) {
+        const responseText = await response.text()
+        console.error('Mapbox API returned non-JSON response:', responseText.substring(0, 200))
+        throw new Error(`Unexpected content-type: ${contentType}`)
+      }
+
+      // ✅ JSONパースをtry-catchでラップ
+      let data
+      try {
+        data = await response.json()
+      } catch (jsonError) {
+        console.error('Failed to parse Mapbox API response as JSON:', jsonError)
+        throw new Error('Invalid JSON response from Mapbox API')
+      }
       
       // デバッグ情報をログに出力（簡略版）
       console.log('Mapbox API Response:', {
