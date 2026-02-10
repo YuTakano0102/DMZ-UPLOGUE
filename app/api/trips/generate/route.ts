@@ -18,14 +18,10 @@ export const maxDuration = 60
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
-    const photoFiles: File[] = []
 
-    // FormDataから写真ファイルを取得
-    for (const [key, value] of formData.entries()) {
-      if (key === 'photos' && value instanceof File) {
-        photoFiles.push(value)
-      }
-    }
+    // ✅ 写真ファイルとphotoIDsを取得
+    const photoFiles = formData.getAll("photos").filter((v): v is File => v instanceof File)
+    const photoIds = formData.getAll("photoIds").filter((v): v is string => typeof v === "string")
 
     if (photoFiles.length === 0) {
       return NextResponse.json(
@@ -42,8 +38,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ✅ ids が無い/数が合わない場合のフォールバック
+    const ids =
+      photoIds.length === photoFiles.length
+        ? photoIds
+        : photoFiles.map((f, i) => `${f.name}-${i}`)
+
     // 旅行記録を生成
-    const result = await generateTripFromPhotos(photoFiles)
+    const result = await generateTripFromPhotos(photoFiles, undefined, ids)
 
     // 成功レスポンス
     // Note: 実際の画像URLはクライアント側でObjectURLを使用

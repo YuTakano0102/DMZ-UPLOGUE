@@ -237,6 +237,7 @@ export default function UploadPage() {
       const formData = new FormData()
       photos.forEach((photo) => {
         formData.append("photos", photo.file)
+        formData.append("photoIds", photo.id) // ✅ IDも一緒に送る
       })
 
       // 進捗シミュレーション
@@ -267,9 +268,16 @@ export default function UploadPage() {
         const duration = ((Date.now() - startTime) / 1000).toFixed(2)
         console.log(`API call completed in ${duration}s`)
 
+        // ✅ エラー時の詳細を表示
         if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || t('errors.generateFailed'))
+          const text = await response.text()
+          console.error("Generate API error:", response.status, text)
+          try {
+            const j = JSON.parse(text)
+            throw new Error(j.error || t('errors.generateFailed'))
+          } catch {
+            throw new Error(text || t('errors.generateFailed'))
+          }
         }
 
         const result = await response.json()
@@ -282,6 +290,7 @@ export default function UploadPage() {
         // spots の photos が photoId 配列になってる前提
         const tripWithUrls = {
           ...result.trip,
+          coverImage: "", // ✅ 先に初期化
           spots: result.trip.spots.map((s: any) => {
             const urls = (s.photos ?? []).map((id: string) => previewMap.get(id)).filter(Boolean)
             return {
@@ -291,6 +300,9 @@ export default function UploadPage() {
             }
           }),
         }
+        
+        // ✅ coverImageを最初のスポットの代表写真に設定
+        tripWithUrls.coverImage = tripWithUrls.spots[0]?.representativePhoto ?? ""
         
         // 生成された旅行記録を保存(localStorageに保存)
         const { saveTrip } = await import("@/lib/trip-storage")

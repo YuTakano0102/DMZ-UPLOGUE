@@ -40,7 +40,8 @@ export interface TripGenerationResult {
  */
 export async function generateTripFromPhotos(
   photos: File[],
-  onProgress?: (progress: TripGenerationProgress) => void
+  onProgress?: (progress: TripGenerationProgress) => void,
+  photoIds?: string[] // ✅ クライアントから送られてきたIDを使用
 ): Promise<TripGenerationResult> {
   const warnings: string[] = []
 
@@ -57,7 +58,7 @@ export async function generateTripFromPhotos(
     const exif = await extractExifFromImage(photo)
     
     photosWithExif.push({
-      id: `photo-${i}`,
+      id: photoIds?.[i] ?? `photo-${i}`, // ✅ クライアントのIDを使用
       file: photo,
       exif,
     })
