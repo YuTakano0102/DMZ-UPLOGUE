@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useTranslations } from 'next-intl'
 import Image from "next/image"
 import {
@@ -90,6 +90,8 @@ const timeLabels = {
 
 export default function UploadPage() {
   const router = useRouter()
+  const pathname = usePathname()
+  const locale = pathname.split('/')[1] || 'ja'
   const t = useTranslations('upload')
   const [photos, setPhotos] = useState<MemoryPhoto[]>([])
   const [step, setStep] = useState<FlowStep>("import")
