@@ -41,6 +41,16 @@ function pickShortName(features: MapboxFeature[]) {
     .flatMap((f) => f.place_type ?? [])
     .filter(Boolean)
 
+  console.log('🔍 pickShortName called with features:', {
+    count: features.length,
+    types: rawFeatureTypes,
+    features: features.map(f => ({
+      text: f.text,
+      place_type: f.place_type,
+      place_name: f.place_name,
+    }))
+  })
+
   const pickByType = (type: string) =>
     features.find((f) => (f.place_type ?? []).includes(type))
 
@@ -55,6 +65,7 @@ function pickShortName(features: MapboxFeature[]) {
     const place = pickContextText(poi, 'place.') || pickContextText(poi, 'locality.')
     const region = pickContextText(poi, 'region.')
     const country = pickContextText(poi, 'country.')
+    console.log('✅ Found POI:', { name, address, place, region })
     return { name, address, place, region, country, rawFeatureTypes }
   }
 
@@ -66,6 +77,7 @@ function pickShortName(features: MapboxFeature[]) {
     const place = pickContextText(neighborhood, 'place.') || pickContextText(neighborhood, 'locality.')
     const region = pickContextText(neighborhood, 'region.')
     const country = pickContextText(neighborhood, 'country.')
+    console.log('✅ Found neighborhood:', { name, address, place, region })
     return { name, address, place, region, country, rawFeatureTypes }
   }
 
@@ -77,6 +89,7 @@ function pickShortName(features: MapboxFeature[]) {
     const place = pickContextText(locality, 'place.') || name
     const region = pickContextText(locality, 'region.')
     const country = pickContextText(locality, 'country.')
+    console.log('✅ Found locality:', { name, address, place, region })
     return { name, address, place, region, country, rawFeatureTypes }
   }
 
@@ -88,6 +101,7 @@ function pickShortName(features: MapboxFeature[]) {
     const place = name
     const region = pickContextText(placeFeature, 'region.')
     const country = pickContextText(placeFeature, 'country.')
+    console.log('✅ Found place:', { name, address, place, region })
     return { name, address, place, region, country, rawFeatureTypes }
   }
 
@@ -113,6 +127,8 @@ function pickShortName(features: MapboxFeature[]) {
     return { name, address, place, region, country, rawFeatureTypes }
   }
 
+  console.log('⚠️ No matching features found, returning fallback')
+  
   return {
     name: '不明なスポット',
     address: '',
@@ -181,13 +197,13 @@ export async function reverseGeocode(
   try {
     // ✅ lng,lat の順
     // ✅ types を拡張して「短い名前候補」を増やす
-    // ✅ limit を上げて features[0] に依存しない
+    // ⚠️ 注意: 逆ジオコーディングでは limit と複数types を同時に使えない
+    //    → limit を削除（デフォルトで複数返る）
     const url =
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json` +
       `?access_token=${mapboxToken}` +
       `&language=ja` +
-      `&types=poi,neighborhood,locality,place,region,address` +
-      `&limit=6`
+      `&types=poi,neighborhood,locality,place,region,address`
 
     console.log('Mapbox API request for:', { lat, lng })
 
@@ -214,9 +230,10 @@ export async function reverseGeocode(
         throw new Error(`Mapbox API error: ${response.status}`)
       }
 
-      if (!contentType || !contentType.includes('application/json')) {
+      // ✅ GeoJSON形式も許可（application/vnd.geo+json）
+      if (!contentType || (!contentType.includes('application/json') && !contentType.includes('application/vnd.geo+json'))) {
         const responseText = await response.text()
-        console.error('Mapbox API returned non-JSON response:', responseText.substring(0, 200))
+        console.error('Mapbox API returned unexpected content-type:', responseText.substring(0, 200))
         throw new Error(`Unexpected content-type: ${contentType}`)
       }
 
