@@ -17,6 +17,7 @@ import {
   Sunset,
   Moon,
   AlertCircle,
+  PencilLine,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { MobileTopBar } from "@/components/mobile-top-bar"
@@ -386,11 +387,11 @@ export default function UploadPage() {
 
         await new Promise((r) => setTimeout(r, 500))
         
-        // タグがある場合はタグ選択画面へ、ない場合は直接完了画面へ
-        if (result.tags && result.tags.length > 0) {
+        // タグがある場合はタグ選択画面へ（ウィザードフロー）
+        if (result.tags && result.tags.length >= 5) {
           setStep("tags")
         } else {
-          // タグがない場合は旅行記録を保存して完了画面へ
+          // タグが不足している場合は旅行記録を保存して完了画面へ
           const { saveTrip } = await import("@/lib/trip-storage")
           saveTrip(tripWithUrls)
           setStep("done")
@@ -465,10 +466,12 @@ export default function UploadPage() {
   const handleConfirmTitle = async () => {
     if (!generatedTrip) return
 
-    // タイトルを更新
+    // タイトルを更新（選択されたタグIDも保存）
     const updatedTrip = {
       ...generatedTrip,
       title: selectedTitle || generatedTrip.title,
+      // @ts-ignore: optional field
+      selectedTagIds: selectedTagIds,
     }
 
     // localStorageに保存
@@ -476,6 +479,17 @@ export default function UploadPage() {
     saveTrip(updatedTrip)
 
     setGeneratedTrip(updatedTrip)
+    setStep("done")
+  }
+
+  // タグ選択をスキップして完了画面へ
+  const handleSkipTagSelection = async () => {
+    if (!generatedTrip) return
+
+    // タグ選択をスキップしてそのまま保存
+    const { saveTrip } = await import("@/lib/trip-storage")
+    saveTrip(generatedTrip)
+
     setStep("done")
   }
 
@@ -637,10 +651,10 @@ export default function UploadPage() {
             </div>
 
             <h2 className="text-xl font-bold text-foreground">
-              {t('tags.title')}
+              旅のタイトルを、もう少し"Uplogue"に。
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
-              {t('tags.subtitle')}
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              写真から抽出したタグのうち、あなたが「この旅っぽい」と思う3つを選んでください。
             </p>
 
             {/* Reality Anchor */}
@@ -667,13 +681,23 @@ export default function UploadPage() {
                 const isSelected = selectedTagIds.includes(tag.id)
                 
                 // カテゴリーバッジの色
-                const categoryColor = {
-                  place: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-                  season: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-                  time: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
-                  motion: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
-                  mood: "bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300",
-                }[tag.category]
+                // カテゴリーラベル
+              const categoryLabel = {
+                place: "場所",
+                season: "季節",
+                time: "時間",
+                motion: "歩き方",
+                mood: "空気感",
+              }[tag.category]
+
+              // カテゴリーバッジの色
+              const categoryColor = {
+                place: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+                season: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+                time: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
+                motion: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
+                mood: "bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300",
+              }[tag.category]
 
                 return (
                   <button
@@ -688,24 +712,30 @@ export default function UploadPage() {
                       }
                     `}
                   >
-                    <div className="flex w-full items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryColor}`}>
-                          {tag.category}
-                        </span>
-                        <span className="text-base font-semibold text-foreground">
+                    <div className="flex w-full items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryColor}`}>
+                            {categoryLabel}
+                          </span>
+                        </div>
+                        <p className="text-base font-semibold text-foreground">
                           {tag.label}
-                        </span>
+                        </p>
+                        {tag.reason && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {tag.reason}
+                          </p>
+                        )}
                       </div>
-                      {isSelected && (
-                        <CheckCircle2 className="h-5 w-5 text-gold" />
-                      )}
+                      <div className={`flex h-6 w-6 items-center justify-center rounded-full border transition-all ${
+                        isSelected 
+                          ? "border-gold bg-gold" 
+                          : "border-border bg-background"
+                      }`}>
+                        {isSelected && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                      </div>
                     </div>
-                    {tag.reason && (
-                      <span className="text-xs text-muted-foreground">
-                        {tag.reason}
-                      </span>
-                    )}
                   </button>
                 )
               })}
@@ -728,8 +758,14 @@ export default function UploadPage() {
             className="h-13 w-full rounded-2xl bg-gold text-base font-semibold text-primary hover:bg-gold/90 disabled:opacity-50"
           >
             <Sparkles className="mr-2 h-5 w-5" />
-            {t('tags.generateButton')}
+            タイトル候補を生成
           </Button>
+          <button
+            onClick={handleSkipTagSelection}
+            className="mt-3 w-full text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            スキップして完了
+          </button>
         </div>
       </div>
     )
@@ -749,10 +785,10 @@ export default function UploadPage() {
               </div>
 
               <h2 className="text-xl font-bold text-foreground">
-                {t('title.title')}
+                タイトルを選ぶ
               </h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
-                {t('title.subtitle')}
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                3つの候補から選ぶか、タップして編集できます。
               </p>
 
               {/* Reality Anchor */}
@@ -805,10 +841,13 @@ export default function UploadPage() {
               </div>
 
               {/* カスタム編集 */}
-              <div className="mt-6">
-                <p className="mb-2 text-sm font-medium text-foreground">
-                  {t('title.customLabel')}
-                </p>
+              <div className="mt-6 rounded-xl border border-border bg-background p-3">
+                <div className="flex items-center gap-2">
+                  <PencilLine className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-xs font-semibold text-foreground">
+                    または編集する
+                  </p>
+                </div>
                 <input
                   type="text"
                   value={isEditingTitle ? selectedTitle : ""}
@@ -817,16 +856,20 @@ export default function UploadPage() {
                     setIsEditingTitle(true)
                   }}
                   onFocus={() => setIsEditingTitle(true)}
-                  placeholder={t('title.customPlaceholder')}
-                  className="w-full rounded-xl border-2 border-border bg-card px-4 py-3 text-base font-semibold text-foreground placeholder:text-muted-foreground focus:border-gold focus:outline-none"
+                  placeholder="タイトルを入力..."
+                  className="mt-2 h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-gold"
+                  maxLength={80}
                 />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  80文字まで
+                </p>
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center">
+            <div className="flex flex-col items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-gold" />
               <p className="mt-4 text-sm text-muted-foreground">
-                {t('title.generating')}
+                タイトルを生成中...
               </p>
               <div className="mt-4 h-1.5 w-48 overflow-hidden rounded-full bg-muted">
                 <div
@@ -841,12 +884,20 @@ export default function UploadPage() {
         {/* 確定ボタン */}
         {titleSuggestions.length > 0 && (
           <div className="sticky bottom-0 border-t border-border bg-background px-4 py-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <button
+                onClick={() => setStep("tags")}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground"
+              >
+                ← タグ選択に戻る
+              </button>
+            </div>
             <Button
               onClick={handleConfirmTitle}
               disabled={!selectedTitle}
               className="h-13 w-full rounded-2xl bg-gold text-base font-semibold text-primary hover:bg-gold/90 disabled:opacity-50"
             >
-              {t('title.confirmButton')}
+              このタイトルで保存
             </Button>
           </div>
         )}
