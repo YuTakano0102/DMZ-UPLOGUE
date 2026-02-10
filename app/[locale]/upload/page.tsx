@@ -42,6 +42,42 @@ function getTimeOfDay(date: Date): "morning" | "afternoon" | "night" {
   return "night"
 }
 
+/**
+ * 画像を圧縮してファイルサイズを削減
+ * Vercelのペイロード制限対策
+ */
+async function compressImage(file: File, maxSize = 1600, quality = 0.72): Promise<File> {
+  // HEICはブラウザがdecodeできないことがあるので、その場合はそのまま返す
+  const isHeic = /\.(heic|heif)$/i.test(file.name)
+  if (isHeic) return file
+
+  try {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height))
+    const w = Math.round(bitmap.width * scale)
+    const h = Math.round(bitmap.height * scale)
+
+    const canvas = document.createElement("canvas")
+    canvas.width = w
+    canvas.height = h
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return file
+    ctx.drawImage(bitmap, 0, 0, w, h)
+
+    const blob: Blob | null = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality)
+    )
+
+    if (!blob) return file
+
+    return new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" })
+  } catch (error) {
+    console.error("Image compression failed:", error)
+    return file // 圧縮失敗時は元ファイルを返す
+  }
+}
+
 const timeLabels = {
   morning: { icon: Sun },
   afternoon: { icon: Sunset },
@@ -233,12 +269,22 @@ export default function UploadPage() {
     setWarnings([])
 
     try {
-      // FormDataを作成
+      // ✅ 写真を圧縮してからFormDataを作成
+      console.log('Compressing images before upload...')
       const formData = new FormData()
-      photos.forEach((photo) => {
-        formData.append("photos", photo.file)
-        formData.append("photoIds", photo.id) // ✅ IDも一緒に送る
-      })
+      
+      for (let i = 0; i < photos.length; i++) {
+        const photo = photos[i]
+        console.log(`Compressing ${i + 1}/${photos.length}: ${photo.file.name} (${(photo.file.size / 1024 / 1024).toFixed(2)}MB)`)
+        
+        const compressedFile = await compressImage(photo.file)
+        console.log(`  → Compressed to ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`)
+        
+        formData.append("photos", compressedFile)
+        formData.append("photoIds", photo.id)
+      }
+      
+      console.log('All images compressed successfully')
 
       // 進捗シミュレーション
       const progressInterval = setInterval(() => {
