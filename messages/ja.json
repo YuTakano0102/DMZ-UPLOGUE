@@ -138,14 +138,17 @@
       "title": "この旅の核を選ぶ",
       "subtitle": "写真から読み取った5つのタグから、\nあなたが感じた3つを選んでください",
       "selectedCount": "{count} / 3 個選択済み",
-      "generateButton": "タイトルを生成"
+      "generateButton": "タイトルを生成",
+      "skipButton": "スキップして完了"
     },
     "title": {
       "title": "タイトルを選ぶ",
       "subtitle": "3つの候補から選ぶか、\nタップして編集できます",
       "customPlaceholder": "タイトルを入力...",
       "customLabel": "または、編集する",
+      "customMaxLength": "80文字まで",
       "confirmButton": "このタイトルで保存",
+      "backToTags": "← タグ選択に戻る",
       "generating": "タイトルを生成中..."
     },
     "done": {

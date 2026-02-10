@@ -664,10 +664,10 @@ export default function UploadPage() {
             </div>
 
             <h2 className="text-xl font-bold text-foreground">
-              旅のタイトルを、もう少し"Uplogue"に。
+              {t('tags.title')}
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              写真から抽出したタグのうち、あなたが「この旅っぽい」と思う3つを選んでください。
+              {t('tags.subtitle')}
             </p>
 
             {/* Reality Anchor */}
@@ -771,13 +771,13 @@ export default function UploadPage() {
             className="h-13 w-full rounded-2xl bg-gold text-base font-semibold text-primary hover:bg-gold/90 disabled:opacity-50"
           >
             <Sparkles className="mr-2 h-5 w-5" />
-            タイトル候補を生成
+            {t('tags.generateButton')}
           </Button>
           <button
             onClick={handleSkipTagSelection}
             className="mt-3 w-full text-sm font-medium text-muted-foreground hover:text-foreground"
           >
-            スキップして完了
+            {t('tags.skipButton')}
           </button>
         </div>
       </div>
@@ -798,10 +798,10 @@ export default function UploadPage() {
               </div>
 
               <h2 className="text-xl font-bold text-foreground">
-                タイトルを選ぶ
+                {t('title.title')}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                3つの候補から選ぶか、タップして編集できます。
+                {t('title.subtitle')}
               </p>
 
               {/* Reality Anchor */}
@@ -858,7 +858,7 @@ export default function UploadPage() {
                 <div className="flex items-center gap-2">
                   <PencilLine className="h-4 w-4 text-muted-foreground" />
                   <p className="text-xs font-semibold text-foreground">
-                    または編集する
+                    {t('title.customLabel')}
                   </p>
                 </div>
                 <input
@@ -869,12 +869,12 @@ export default function UploadPage() {
                     setIsEditingTitle(true)
                   }}
                   onFocus={() => setIsEditingTitle(true)}
-                  placeholder="タイトルを入力..."
+                  placeholder={t('title.customPlaceholder')}
                   className="mt-2 h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-gold"
                   maxLength={80}
                 />
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  80文字まで
+                  {t('title.customMaxLength')}
                 </p>
               </div>
             </div>
@@ -902,7 +902,7 @@ export default function UploadPage() {
                 onClick={() => setStep("tags")}
                 className="text-sm font-medium text-muted-foreground hover:text-foreground"
               >
-                ← タグ選択に戻る
+                {t('title.backToTags')}
               </button>
             </div>
             <Button

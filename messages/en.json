@@ -138,14 +138,17 @@
       "title": "Choose the Essence of This Trip",
       "subtitle": "Select 3 tags from the 5 detected\nthat resonate with your experience",
       "selectedCount": "{count} / 3 selected",
-      "generateButton": "Generate Title"
+      "generateButton": "Generate Title",
+      "skipButton": "Skip and Complete"
     },
     "title": {
       "title": "Choose Your Title",
       "subtitle": "Select from 3 options,\nor tap to edit",
       "customPlaceholder": "Enter title...",
       "customLabel": "Or, edit it",
+      "customMaxLength": "Max 80 characters",
       "confirmButton": "Save with This Title",
+      "backToTags": "← Back to Tag Selection",
       "generating": "Generating title..."
     },
     "done": {
