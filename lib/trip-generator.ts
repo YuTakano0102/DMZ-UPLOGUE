@@ -12,7 +12,9 @@ import {
 } from './exif-utils'
 import { reverseGeocode, extractPrefecture } from './geocoding'
 import type { Spot, Trip } from './mock-data'
-import { generateImpressionTags, type ImpressionTag } from './impression-tags'
+import { generateUplogueTags } from './tag-generator'
+import { generateTitleSuggestions } from './title-generator'
+import type { UplogueTag } from './uplogue-lexicon'
 
 export interface TripGenerationInput {
   photos: File[]
@@ -27,7 +29,7 @@ export interface TripGenerationProgress {
 export interface TripGenerationResult {
   trip: Trip
   warnings: string[]
-  impressionTags: ImpressionTag[]
+  tags: UplogueTag[]
 }
 
 /**
@@ -287,17 +289,64 @@ export async function generateTripFromPhotos(
 
   onProgress?.({
     step: 'complete',
+    progress: 95,
+    message: 'タグを生成しています...',
+  })
+
+  // ✅ derive minimal signals for tags (MVP)
+  const gpsRatio = photosWithExif.length > 0 ? gpsPhotos.length / photosWithExif.length : 0
+
+  const photoTimestamps = photosWithExif
+    .map((p) => p.exif.timestamp)
+    .filter((d): d is Date => d instanceof Date)
+
+  // Calculate total distance for motion tags
+  let totalDistance = 0
+  if (spots.length > 1) {
+    for (let i = 1; i < spots.length; i++) {
+      const prev = spots[i - 1]
+      const curr = spots[i]
+      const R = 6371 // Earth radius in km
+      const dLat = (curr.lat - prev.lat) * Math.PI / 180
+      const dLon = (curr.lng - prev.lng) * Math.PI / 180
+      const lat1 = prev.lat * Math.PI / 180
+      const lat2 = curr.lat * Math.PI / 180
+      
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2)
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+      totalDistance += R * c
+    }
+  }
+
+  // NOTE: brightness is optional; keep undefined for now.
+  const tags = generateUplogueTags({
+    trip,
+    startDateISO: startDate,
+    photoTimestamps,
+    gpsRatio,
+    distanceKm: totalDistance > 0 ? totalDistance : undefined,
+  })
+
+  // default title suggestions from all 5 tags
+  const titleSuggestions = generateTitleSuggestions(tags)
+
+  trip.tags = tags
+  trip.titleSuggestions = titleSuggestions
+
+  console.log('Generated tags:', tags)
+  console.log('Generated title suggestions:', titleSuggestions)
+
+  onProgress?.({
+    step: 'complete',
     progress: 100,
     message: '完了しました',
   })
 
-  // 印象タグを生成
-  const impressionTags = generateImpressionTags(trip)
-
   return {
     trip,
     warnings,
-    impressionTags,
+    tags,
   }
 }
 

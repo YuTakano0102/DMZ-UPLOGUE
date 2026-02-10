@@ -1,3 +1,6 @@
+import type { UplogueTag } from "./uplogue-lexicon"
+import type { TitleSuggestion } from "./title-generator"
+
 export interface Spot {
   id: string
   name: string
@@ -21,6 +24,10 @@ export interface Trip {
   photoCount: number
   isPublic: boolean
   spots: Spot[]
+  
+  // ✅ Tag & Title generation
+  tags?: UplogueTag[]
+  titleSuggestions?: TitleSuggestion[]
 }
 
 export const mockTrips: Trip[] = [
