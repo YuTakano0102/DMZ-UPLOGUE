@@ -70,7 +70,12 @@
     "photos": "写真",
     "yourArchive": "あなたのアーカイブ",
     "noTrips": "まだ旅行記録がありません",
-    "noTripsSubtitle": "写真をアップロードして旅の記録を作りましょう"
+    "noTripsSubtitle": "写真をアップロードして旅の記録を作りましょう",
+    "deleteTrip": "旅行記録を削除",
+    "deleteConfirm": "この旅行記録を削除しますか？",
+    "deleteMessage": "削除すると元に戻せません。",
+    "delete": "削除",
+    "cancel": "キャンセル"
   },
   "maplogue": {
     "title": "MapLogue",

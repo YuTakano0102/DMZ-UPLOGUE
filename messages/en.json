@@ -70,7 +70,12 @@
     "photos": "Photos",
     "yourArchive": "Your Archive",
     "noTrips": "No travel records yet",
-    "noTripsSubtitle": "Upload photos to create your travel memories"
+    "noTripsSubtitle": "Upload photos to create your travel memories",
+    "deleteTrip": "Delete Trip",
+    "deleteConfirm": "Are you sure you want to delete this trip?",
+    "deleteMessage": "This action cannot be undone.",
+    "delete": "Delete",
+    "cancel": "Cancel"
   },
   "maplogue": {
     "title": "MapLogue",

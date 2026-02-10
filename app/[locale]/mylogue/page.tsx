@@ -1,21 +1,27 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { MapPin, Camera, BookOpen } from "lucide-react"
+import { MapPin, Camera, BookOpen, X } from "lucide-react"
 import { TripCard } from "@/components/dashboard/trip-card"
 import { BottomTabBar } from "@/components/bottom-tab-bar"
 import { MobileTopBar } from "@/components/mobile-top-bar"
 import { mockTrips } from "@/lib/mock-data"
-import { getAllTrips } from "@/lib/trip-storage"
+import { getAllTrips, deleteTrip } from "@/lib/trip-storage"
 import type { Trip } from "@/lib/mock-data"
 import { useTranslations } from 'next-intl'
 
 export default function MyLoguePage() {
   const t = useTranslations('mylogue')
   const [trips, setTrips] = useState<Trip[]>([])
+  const [userTripIds, setUserTripIds] = useState<Set<string>>(new Set())
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   // 保存された旅行記録とモックデータを結合
   useEffect(() => {
+    loadTrips()
+  }, [])
+
+  const loadTrips = () => {
     const storedTrips = getAllTrips()
     const allTrips = [...storedTrips, ...mockTrips]
     
@@ -24,8 +30,31 @@ export default function MyLoguePage() {
       (trip, index, self) => index === self.findIndex((t) => t.id === trip.id)
     )
     
+    // ユーザーが作成した旅行のIDを保持
+    setUserTripIds(new Set(storedTrips.map(t => t.id)))
     setTrips(uniqueTrips)
-  }, [])
+  }
+
+  const handleDeleteRequest = (tripId: string) => {
+    setDeleteConfirmId(tripId)
+  }
+
+  const handleDeleteConfirm = () => {
+    if (!deleteConfirmId) return
+    
+    try {
+      deleteTrip(deleteConfirmId)
+      setDeleteConfirmId(null)
+      loadTrips() // リロード
+    } catch (error) {
+      console.error('Failed to delete trip:', error)
+      alert(error instanceof Error ? error.message : '削除に失敗しました')
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirmId(null)
+  }
 
   const totalTrips = trips.length
   const totalPhotos = trips.reduce((sum, t) => sum + t.photoCount, 0)
@@ -77,12 +106,56 @@ export default function MyLoguePage() {
           ) : (
             <div className="flex flex-col gap-3">
               {trips.map((trip) => (
-                <TripCard key={trip.id} trip={trip} />
+                <TripCard 
+                  key={trip.id} 
+                  trip={trip}
+                  isDeletable={userTripIds.has(trip.id)}
+                  onDelete={handleDeleteRequest}
+                />
               ))}
             </div>
           )}
         </div>
       </main>
+
+      {/* Delete confirmation dialog */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">
+                  {t('deleteConfirm')}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t('deleteMessage')}
+                </p>
+              </div>
+              <button
+                onClick={handleDeleteCancel}
+                className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-muted"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleDeleteCancel}
+                className="flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted active:scale-95"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="flex-1 rounded-xl bg-destructive px-4 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 active:scale-95"
+              >
+                {t('delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomTabBar />
     </div>

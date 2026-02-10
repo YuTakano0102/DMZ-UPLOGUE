@@ -3,7 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { MapPin, Camera, Calendar, Globe, Lock } from "lucide-react"
+import { MapPin, Camera, Calendar, Globe, Lock, Trash2 } from "lucide-react"
 import type { Trip } from "@/lib/mock-data"
 
 function formatDateRange(start: string, end: string, locale: string) {
@@ -17,14 +17,28 @@ function formatDateRange(start: string, end: string, locale: string) {
   return `${s.toLocaleDateString(localeCode, { ...opts, year: "numeric" })} - ${e.toLocaleDateString(localeCode, opts)}`
 }
 
-export function TripCard({ trip }: { trip: Trip }) {
+interface TripCardProps {
+  trip: Trip
+  onDelete?: (tripId: string) => void
+  isDeletable?: boolean
+}
+
+export function TripCard({ trip, onDelete, isDeletable = false }: TripCardProps) {
   const pathname = usePathname()
   const locale = pathname.split('/')[1] || 'ja'
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (onDelete) {
+      onDelete(trip.id)
+    }
+  }
   
   return (
     <Link
       href={`/${locale}/trips/${trip.id}`}
-      className="group flex gap-4 rounded-2xl border border-border bg-card p-3 active:bg-muted"
+      className="group relative flex gap-4 rounded-2xl border border-border bg-card p-3 active:bg-muted"
     >
       {/* Thumbnail */}
       <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl">
@@ -69,6 +83,17 @@ export function TripCard({ trip }: { trip: Trip }) {
           <span className="truncate">{trip.location}</span>
         </div>
       </div>
+
+      {/* Delete button */}
+      {isDeletable && onDelete && (
+        <button
+          onClick={handleDelete}
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10 text-destructive opacity-0 transition-opacity hover:bg-destructive/20 group-hover:opacity-100 active:scale-95"
+          aria-label="削除"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
     </Link>
   )
 }
