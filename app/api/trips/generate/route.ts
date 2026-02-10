@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateTripFromPhotos } from '@/lib/trip-generator'
+import type { ExifData } from '@/lib/exif-utils'
 
 // Vercel Serverless Functionのタイムアウトと実行環境を設定
 export const runtime = "nodejs"
@@ -19,9 +20,10 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
 
-    // ✅ 写真ファイルとphotoIDsを取得
+    // ✅ 写真ファイル、photoIDs、EXIF情報を取得
     const photoFiles = formData.getAll("photos").filter((v): v is File => v instanceof File)
     const photoIds = formData.getAll("photoIds").filter((v): v is string => typeof v === "string")
+    const exifDataString = formData.get("exifData")
 
     if (photoFiles.length === 0) {
       return NextResponse.json(
@@ -44,8 +46,19 @@ export async function POST(request: NextRequest) {
         ? photoIds
         : photoFiles.map((f, i) => `${f.name}-${i}`)
 
+    // ✅ EXIF情報をパース
+    let exifDataArray: ExifData[] | undefined
+    if (exifDataString && typeof exifDataString === 'string') {
+      try {
+        exifDataArray = JSON.parse(exifDataString)
+        console.log(`Received ${exifDataArray?.length} EXIF data entries`)
+      } catch (e) {
+        console.error('Failed to parse EXIF data:', e)
+      }
+    }
+
     // 旅行記録を生成
-    const result = await generateTripFromPhotos(photoFiles, undefined, ids)
+    const result = await generateTripFromPhotos(photoFiles, undefined, ids, exifDataArray)
 
     // 成功レスポンス
     // Note: 実際の画像URLはクライアント側でObjectURLを使用
