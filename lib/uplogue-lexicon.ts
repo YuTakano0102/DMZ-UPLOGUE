@@ -34,6 +34,17 @@ export function monthToSeasonJP(month: number): { season: string; label: string 
   return { season: "autumn", label: "秋" }
 }
 
+export function monthToSeasonEN(month: number): { season: string; label: string } {
+  if (month === 12 || month <= 2) return { season: "winter", label: "Winter" }
+  if (month >= 3 && month <= 5) return { season: "spring", label: "Spring" }
+  if (month >= 6 && month <= 8) return { season: "summer", label: "Summer" }
+  return { season: "autumn", label: "Autumn" }
+}
+
+export function monthToSeason(month: number, locale: string = 'ja'): { season: string; label: string } {
+  return locale === 'en' ? monthToSeasonEN(month) : monthToSeasonJP(month)
+}
+
 // ---- Time-of-day to poetic labels ----
 export function hourToTimeLabelJP(hour: number): string {
   if (hour < 6) return "夜更け"
@@ -45,6 +56,20 @@ export function hourToTimeLabelJP(hour: number): string {
   return "夜"
 }
 
+export function hourToTimeLabelEN(hour: number): string {
+  if (hour < 6) return "Late night"
+  if (hour < 10) return "Morning"
+  if (hour < 12) return "Late morning"
+  if (hour < 15) return "Afternoon"
+  if (hour < 18) return "Late afternoon"
+  if (hour < 21) return "Evening"
+  return "Night"
+}
+
+export function hourToTimeLabel(hour: number, locale: string = 'ja'): string {
+  return locale === 'en' ? hourToTimeLabelEN(hour) : hourToTimeLabelJP(hour)
+}
+
 // ---- Motion mapping ----
 export function distanceToMotionLabelJP(distanceKm: number): string {
   if (distanceKm >= 15) return "よく歩いた日"
@@ -53,14 +78,33 @@ export function distanceToMotionLabelJP(distanceKm: number): string {
   return "近くをめぐる"
 }
 
+export function distanceToMotionLabelEN(distanceKm: number): string {
+  if (distanceKm >= 15) return "Long walk"
+  if (distanceKm >= 8) return "Wandering around"
+  if (distanceKm >= 3) return "Casual stroll"
+  return "Nearby exploration"
+}
+
+export function distanceToMotionLabel(distanceKm: number, locale: string = 'ja'): string {
+  return locale === 'en' ? distanceToMotionLabelEN(distanceKm) : distanceToMotionLabelJP(distanceKm)
+}
+
 // ---- Mood mapping (simple heuristics) ----
 export function sunlightToMoodLabelJP(isLikelyBright: boolean): string {
   return isLikelyBright ? "まぶしさの記憶" : "やわらかな光"
 }
 
+export function sunlightToMoodLabelEN(isLikelyBright: boolean): string {
+  return isLikelyBright ? "Bright moments" : "Soft light"
+}
+
+export function sunlightToMoodLabel(isLikelyBright: boolean, locale: string = 'ja'): string {
+  return locale === 'en' ? sunlightToMoodLabelEN(isLikelyBright) : sunlightToMoodLabelJP(isLikelyBright)
+}
+
 // Place fallback when no geocode name
-export function unknownPlaceLabel(): string {
-  return "どこかの街角"
+export function unknownPlaceLabel(locale: string = 'ja'): string {
+  return locale === 'en' ? "Somewhere" : "どこかの街角"
 }
 
 // Utility: safe clamp

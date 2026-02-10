@@ -46,8 +46,10 @@ export async function generateTripFromPhotos(
   photos: File[],
   onProgress?: (progress: TripGenerationProgress) => void,
   photoIds?: string[], // ✅ クライアントから送られてきたIDを使用
-  exifDataArray?: ExifData[] // ✅ 圧縮前に抽出したEXIF情報を使用
+  exifDataArray?: ExifData[], // ✅ 圧縮前に抽出したEXIF情報を使用
+  locale?: string // ✅ ロケール情報
 ): Promise<TripGenerationResult> {
+  const currentLocale = locale || 'ja'
   const warnings: string[] = []
 
   // ステップ1: EXIF情報抽出
@@ -155,7 +157,7 @@ export async function generateTripFromPhotos(
           }
           
           // 逆ジオコーディング
-          const geocode = await reverseGeocode(cluster.centerLat, cluster.centerLng)
+          const geocode = await reverseGeocode(cluster.centerLat, cluster.centerLng, currentLocale)
           
           console.log(`Geocode result for cluster ${i + 1}:`, geocode)
           
@@ -326,10 +328,11 @@ export async function generateTripFromPhotos(
     photoTimestamps,
     gpsRatio,
     distanceKm: totalDistance > 0 ? totalDistance : undefined,
+    locale: currentLocale,
   })
 
   // default title suggestions from all 5 tags
-  const titleSuggestions = generateTitleSuggestions(tags)
+  const titleSuggestions = generateTitleSuggestions(tags, currentLocale)
 
   trip.tags = tags
   trip.titleSuggestions = titleSuggestions
