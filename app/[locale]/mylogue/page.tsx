@@ -26,7 +26,11 @@ export default function MyLoguePage() {
       const storedTrips = await getAllTrips()
       // 配列保証
       const safeStoredTrips = Array.isArray(storedTrips) ? storedTrips : []
-      const allTrips = [...safeStoredTrips, ...mockTrips]
+      
+      // 開発環境のみmockTripsを混ぜる
+      const allTrips = process.env.NODE_ENV === "development"
+        ? [...safeStoredTrips, ...mockTrips]
+        : safeStoredTrips
       
       // IDで重複を除去
       const uniqueTrips = allTrips.filter(

@@ -55,13 +55,18 @@ export default function TripDetailPage({
 
   // 旅行記録を読み込む(ストレージまたはモックデータから)
   useEffect(() => {
-    const storedTrip = getTrip(id)
-    const tripData = storedTrip || mockTrips.find((t) => t.id === id) || mockTrips[0]
-    setTrip(tripData)
-    
-    if (tripData.spots.length > 0) {
-      setActiveSpotId(tripData.spots[0].id)
-    }
+    (async () => {
+      const storedTrip = await getTrip(id)
+      const tripData = storedTrip || mockTrips.find((t) => t.id === id) || null
+      
+      setTrip(tripData)
+      
+      if (tripData?.spots?.length) {
+        setActiveSpotId(tripData.spots[0].id)
+      } else {
+        setActiveSpotId(null)
+      }
+    })()
   }, [id])
 
   if (!trip) {
