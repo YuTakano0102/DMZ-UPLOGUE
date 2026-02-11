@@ -313,6 +313,24 @@ export default function UploadPage() {
 
       // ===== STEP2: APIに画像URLだけを送信（軽量なJSONのみ） =====
       console.log('🚀 Sending photo URLs to API...')
+      
+      // デバッグ: 送信するデータを確認
+      const requestData = {
+        photos: uploadedPhotos.map(p => ({
+          id: p.id,
+          url: p.url,
+          exif: {
+            latitude: p.exif.latitude,
+            longitude: p.exif.longitude,
+            timestamp: p.exif.timestamp ? new Date(p.exif.timestamp).toISOString() : null,
+            fileName: p.exif.fileName,
+          }
+        })),
+        locale: 'ja',
+      }
+      
+      console.log('Request data sample:', JSON.stringify(requestData).substring(0, 500))
+      
       const startTime = Date.now()
       
       const controller = new AbortController()
@@ -327,10 +345,7 @@ export default function UploadPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            photos: uploadedPhotos,
-            locale: 'ja',
-          }),
+          body: JSON.stringify(requestData),
           signal: controller.signal,
         })
 
