@@ -423,26 +423,11 @@ export default function UploadPage() {
       
       console.log('Trip generation result:', result)
       
-      // ✅ クライアント側で photoId → preview(URL) に解決する
-      const previewMap = new Map(photos.map(p => [p.id, p.preview]))
-
-      const tripWithUrls = {
-        ...result.trip,
-        coverImage: "",
-        spots: result.trip.spots.map((s: any) => {
-          const urls = (s.photos ?? []).map((id: string) => previewMap.get(id)).filter(Boolean)
-          return {
-            ...s,
-            photos: urls,
-            representativePhoto: urls[0] ?? "",
-          }
-        }),
-      }
+      // ✅ APIで既に保存済み、そのまま使用
+      const savedTrip = result.trip
       
-      tripWithUrls.coverImage = tripWithUrls.spots[0]?.representativePhoto ?? ""
-      
-      // 生成された旅行記録を一時保存
-      setGeneratedTrip(tripWithUrls)
+      // 生成された旅行記録を state に保存
+      setGeneratedTrip(savedTrip)
       setWarnings(result.warnings || [])
 
       // Uplogueタグを取得
@@ -456,9 +441,7 @@ export default function UploadPage() {
       if (result.tags && result.tags.length >= 5) {
         setStep("tags")
       } else {
-        // タグが不足している場合は旅行記録を保存して完了画面へ
-        const { saveTrip } = await import("@/lib/trip-storage")
-        saveTrip(tripWithUrls)
+        // タグが不足している場合は完了画面へ（既にDBに保存済み）
         setStep("done")
       }
     } catch (err) {
@@ -522,38 +505,31 @@ export default function UploadPage() {
   const handleConfirmTitle = async () => {
     if (!generatedTrip) return
 
-    // タイトルを更新（選択されたタグIDも保存）
-    const updatedTrip = {
-      ...generatedTrip,
-      title: selectedTitle || generatedTrip.title,
-      // @ts-ignore: optional field
-      selectedTagIds: selectedTagIds,
-      // @ts-ignore: タイトル確定済みフラグ
-      titleConfirmed: true,
+    // タイトルを更新してAPIに送信
+    const { updateTrip } = await import("@/lib/trip-storage")
+    
+    try {
+      const updatedTrip = await updateTrip(generatedTrip.id, {
+        title: selectedTitle || generatedTrip.title,
+        // @ts-ignore: optional field
+        selectedTagIds: selectedTagIds,
+        // @ts-ignore: タイトル確定済みフラグ
+        titleConfirmed: true,
+      })
+
+      setGeneratedTrip(updatedTrip)
+      setStep("done")
+    } catch (error) {
+      console.error('Failed to update trip:', error)
+      setError(t('errors.titleGenerateFailed'))
     }
-
-    // localStorageに保存
-    const { saveTrip } = await import("@/lib/trip-storage")
-    saveTrip(updatedTrip)
-
-    setGeneratedTrip(updatedTrip)
-    setStep("done")
   }
 
   // タグ選択をスキップして完了画面へ
   const handleSkipTagSelection = async () => {
     if (!generatedTrip) return
 
-    // タグ選択をスキップしてそのまま保存（タイトル未確定として保存）
-    const updatedTrip = {
-      ...generatedTrip,
-      // @ts-ignore: タイトル未確定フラグ
-      titleConfirmed: false,
-    }
-    
-    const { saveTrip } = await import("@/lib/trip-storage")
-    saveTrip(updatedTrip)
-
+    // タグ選択をスキップして完了画面へ（既にDBに保存済み）
     setStep("done")
   }
 
@@ -1130,7 +1106,7 @@ export default function UploadPage() {
   /* ─── Step: Review (trip detected) ─── */
   return (
     <div className="flex min-h-dvh flex-col bg-background pb-24">
-      <MobileTopBar title={t('title')} showBack />
+      <MobileTopBar title="" showBack />
 
       <main className="flex-1 px-4 pt-4">
         {/* Error message */}

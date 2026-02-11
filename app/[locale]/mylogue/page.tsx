@@ -21,31 +21,37 @@ export default function MyLoguePage() {
     loadTrips()
   }, [])
 
-  const loadTrips = () => {
-    const storedTrips = getAllTrips()
-    const allTrips = [...storedTrips, ...mockTrips]
-    
-    // IDで重複を除去
-    const uniqueTrips = allTrips.filter(
-      (trip, index, self) => index === self.findIndex((t) => t.id === trip.id)
-    )
-    
-    // ユーザーが作成した旅行のIDを保持
-    setUserTripIds(new Set(storedTrips.map(t => t.id)))
-    setTrips(uniqueTrips)
+  const loadTrips = async () => {
+    try {
+      const storedTrips = await getAllTrips()
+      const allTrips = [...storedTrips, ...mockTrips]
+      
+      // IDで重複を除去
+      const uniqueTrips = allTrips.filter(
+        (trip, index, self) => index === self.findIndex((t) => t.id === trip.id)
+      )
+      
+      // ユーザーが作成した旅行のIDを保持
+      setUserTripIds(new Set(storedTrips.map(t => t.id)))
+      setTrips(uniqueTrips)
+    } catch (error) {
+      console.error('Failed to load trips:', error)
+      // エラー時はモックデータのみ表示
+      setTrips(mockTrips)
+    }
   }
 
   const handleDeleteRequest = (tripId: string) => {
     setDeleteConfirmId(tripId)
   }
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!deleteConfirmId) return
     
     try {
-      deleteTrip(deleteConfirmId)
+      await deleteTrip(deleteConfirmId)
       setDeleteConfirmId(null)
-      loadTrips() // リロード
+      await loadTrips() // リロード
     } catch (error) {
       console.error('Failed to delete trip:', error)
       alert(error instanceof Error ? error.message : '削除に失敗しました')
