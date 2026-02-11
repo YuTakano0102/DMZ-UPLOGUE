@@ -1,0 +1,89 @@
+// Uplogue Database Schema
+// 旅行記録アプリケーションのデータベース定義
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==========================================
+// Trip（旅行記録）
+// ==========================================
+model Trip {
+  id          String   @id @default(uuid())
+  title       String
+  coverImage  String?  // Supabase Storage URL
+  startDate   String   // ISO date string
+  endDate     String   // ISO date string
+  location    String
+  spotCount   Int      @default(0)
+  photoCount  Int      @default(0)
+  isPublic    Boolean  @default(false)
+  
+  // タイトル生成関連（オプション）
+  selectedTagIds    String[]
+  titleConfirmed    Boolean  @default(false)
+  
+  // リレーション
+  spots       Spot[]
+  
+  // タイムスタンプ
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([createdAt])
+  @@index([isPublic])
+}
+
+// ==========================================
+// Spot（訪問スポット）
+// ==========================================
+model Spot {
+  id                    String   @id @default(uuid())
+  tripId                String
+  name                  String
+  address               String?
+  lat                   Float
+  lng                   Float
+  arrivalTime           String   // ISO datetime string
+  departureTime         String   // ISO datetime string
+  representativePhoto   String?  // Supabase Storage URL
+  
+  // リレーション
+  trip                  Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  photos                Photo[]
+  
+  // タイムスタンプ
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@index([tripId])
+  @@index([lat, lng])
+}
+
+// ==========================================
+// Photo（写真）
+// ==========================================
+model Photo {
+  id            String   @id @default(uuid())
+  spotId        String
+  url           String   // Supabase Storage URL
+  thumbnailUrl  String?  // サムネイルURL（オプション）
+  
+  // EXIF情報（オプション）
+  latitude      Float?
+  longitude     Float?
+  timestamp     DateTime?
+  
+  // リレーション
+  spot          Spot     @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  
+  // タイムスタンプ
+  createdAt     DateTime @default(now())
+  
+  @@index([spotId])
+  @@index([latitude, longitude])
+}

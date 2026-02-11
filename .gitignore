@@ -63,3 +63,4 @@ instrumentation-client.ts
 
 # Debug
 *.local
+/lib/generated/prisma
