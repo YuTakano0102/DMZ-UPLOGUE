@@ -38,6 +38,12 @@ interface MemoryPhoto {
 
 type FlowStep = "import" | "detecting" | "review" | "generating" | "tags" | "title" | "done"
 
+type UploadStage =
+  | "analyzing_time"      // STEP1: 時間が生まれる
+  | "detecting_places"    // STEP2: 場所が現れる
+  | "composing_story"     // STEP3: 意味がまとまる
+  | "done"                // 完了
+
 /** Simulate time-of-day bucket */
 function getTimeOfDay(date: Date): "morning" | "afternoon" | "night" {
   const h = date.getHours()
@@ -106,6 +112,12 @@ export default function UploadPage() {
   const [titleSuggestions, setTitleSuggestions] = useState<TitleSuggestion[]>([])
   const [selectedTitle, setSelectedTitle] = useState<string>("")
   const [isEditingTitle, setIsEditingTitle] = useState(false)
+  
+  // 3段階演出用のstate
+  const [uploadStage, setUploadStage] = useState<UploadStage>("analyzing_time")
+  const [timelinePreview, setTimelinePreview] = useState<{morning: MemoryPhoto[], afternoon: MemoryPhoto[], night: MemoryPhoto[]} | null>(null)
+  const [mapPins, setMapPins] = useState<Array<{lat: number, lng: number}>>([])
+  const [titleCandidates, setTitleCandidates] = useState<string[]>([])
 
   // simulate a detected trip
   const detectedTrip = useMemo(() => {
@@ -287,6 +299,10 @@ export default function UploadPage() {
     setStep("generating")
     setError(null)
     setWarnings([])
+    setUploadStage("analyzing_time")
+    setTimelinePreview(null)
+    setMapPins([])
+    setTitleCandidates([])
 
     try {
       // ✅ 写真を圧縮してからFormDataを作成
@@ -317,35 +333,25 @@ export default function UploadPage() {
       
       console.log('All images compressed successfully')
 
-      // 進捗シミュレーション
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => Math.min(prev + 5, 90))
-      }, 200)
-
+      // ✅ APIリクエストを並列で開始（待機しない）
       console.log('Starting trip generation API call...')
       const startTime = Date.now()
-
-      // APIリクエスト（タイムアウト90秒）
+      
       const controller = new AbortController()
       const timeoutId = setTimeout(() => {
         console.error('API call timeout after 90 seconds')
         controller.abort()
       }, 90000)
 
-      try {
-        const response = await fetch("/api/trips/generate", {
-          method: "POST",
-          body: formData,
-          signal: controller.signal,
-        })
-
+      const apiPromise = fetch("/api/trips/generate", {
+        method: "POST",
+        body: formData,
+        signal: controller.signal,
+      }).then(async (response) => {
         clearTimeout(timeoutId)
-        clearInterval(progressInterval)
-        
         const duration = ((Date.now() - startTime) / 1000).toFixed(2)
         console.log(`API call completed in ${duration}s`)
 
-        // ✅ エラー時の詳細を表示
         if (!response.ok) {
           const text = await response.text()
           console.error("Generate API error:", response.status, text)
@@ -357,58 +363,103 @@ export default function UploadPage() {
           }
         }
 
-        const result = await response.json()
-        
-        console.log('Trip generation result:', result)
-        
-        // ✅ クライアント側で photoId → preview(URL) に解決する
-        const previewMap = new Map(photos.map(p => [p.id, p.preview]))
-
-        // spots の photos が photoId 配列になってる前提
-        const tripWithUrls = {
-          ...result.trip,
-          coverImage: "", // ✅ 先に初期化
-          spots: result.trip.spots.map((s: any) => {
-            const urls = (s.photos ?? []).map((id: string) => previewMap.get(id)).filter(Boolean)
-            return {
-              ...s,
-              photos: urls,
-              representativePhoto: urls[0] ?? "",
-            }
-          }),
-        }
-        
-        // ✅ coverImageを最初のスポットの代表写真に設定
-        tripWithUrls.coverImage = tripWithUrls.spots[0]?.representativePhoto ?? ""
-        
-        // 生成された旅行記録を一時保存
-        setGeneratedTrip(tripWithUrls)
-        setWarnings(result.warnings || [])
-        setProgress(100)
-
-        // Uplogueタグを取得
-        console.log('Received Uplogue tags:', result.tags)
-        setUplogueTags(result.tags || [])
-
-        await new Promise((r) => setTimeout(r, 500))
-        
-        // タグがある場合はタグ選択画面へ（ウィザードフロー）
-        if (result.tags && result.tags.length >= 5) {
-          setStep("tags")
-        } else {
-          // タグが不足している場合は旅行記録を保存して完了画面へ
-          const { saveTrip } = await import("@/lib/trip-storage")
-          saveTrip(tripWithUrls)
-          setStep("done")
-        }
-      } catch (fetchError: any) {
+        return await response.json()
+      }).catch((fetchError: any) => {
         clearTimeout(timeoutId)
-        clearInterval(progressInterval)
-        
         if (fetchError.name === 'AbortError') {
           throw new Error(t('errors.timeout'))
         }
         throw fetchError
+      })
+
+      // ===== STEP1: 時間が生まれる =====
+      setUploadStage("analyzing_time")
+      await new Promise((r) => setTimeout(r, 900))
+      
+      // 写真を時間帯でグループ化（フロントのみの処理）
+      const timeGroups = {
+        morning: photos.filter(p => getTimeOfDay(p.timestamp) === "morning"),
+        afternoon: photos.filter(p => getTimeOfDay(p.timestamp) === "afternoon"),
+        night: photos.filter(p => getTimeOfDay(p.timestamp) === "night"),
+      }
+      setTimelinePreview(timeGroups)
+      
+      await new Promise((r) => setTimeout(r, 1200))
+
+      // ===== STEP2: 場所が現れる =====
+      setUploadStage("detecting_places")
+      await new Promise((r) => setTimeout(r, 600))
+      
+      // GPS情報のある写真からピンを順番に表示
+      const gpsPhotos = photos.filter(p => p.hasGps)
+      for (let i = 0; i < Math.min(gpsPhotos.length, 8); i++) {
+        const photo = gpsPhotos[i]
+        if (photo.exif.latitude && photo.exif.longitude) {
+          setMapPins(prev => [...prev, { lat: photo.exif.latitude!, lng: photo.exif.longitude! }])
+          await new Promise((r) => setTimeout(r, 350))
+        }
+      }
+      
+      await new Promise((r) => setTimeout(r, 800))
+
+      // ===== STEP3: 意味がまとまる =====
+      setUploadStage("composing_story")
+      await new Promise((r) => setTimeout(r, 600))
+      
+      // タイトル候補を薄く表示（最大3つ）
+      const tempTitles = [
+        "旅の記録",
+        "思い出の旅",
+        "特別な時間"
+      ]
+      
+      for (let i = 0; i < tempTitles.length; i++) {
+        setTitleCandidates(prev => [...prev, tempTitles[i]])
+        await new Promise((r) => setTimeout(r, i === 0 ? 600 : 200))
+      }
+      
+      // ===== API結果を待つ =====
+      const result = await apiPromise
+      
+      console.log('Trip generation result:', result)
+      
+      // ✅ クライアント側で photoId → preview(URL) に解決する
+      const previewMap = new Map(photos.map(p => [p.id, p.preview]))
+
+      const tripWithUrls = {
+        ...result.trip,
+        coverImage: "",
+        spots: result.trip.spots.map((s: any) => {
+          const urls = (s.photos ?? []).map((id: string) => previewMap.get(id)).filter(Boolean)
+          return {
+            ...s,
+            photos: urls,
+            representativePhoto: urls[0] ?? "",
+          }
+        }),
+      }
+      
+      tripWithUrls.coverImage = tripWithUrls.spots[0]?.representativePhoto ?? ""
+      
+      // 生成された旅行記録を一時保存
+      setGeneratedTrip(tripWithUrls)
+      setWarnings(result.warnings || [])
+
+      // Uplogueタグを取得
+      console.log('Received Uplogue tags:', result.tags)
+      setUplogueTags(result.tags || [])
+
+      setUploadStage("done")
+      await new Promise((r) => setTimeout(r, 500))
+      
+      // タグがある場合はタグ選択画面へ（ウィザードフロー）
+      if (result.tags && result.tags.length >= 5) {
+        setStep("tags")
+      } else {
+        // タグが不足している場合は旅行記録を保存して完了画面へ
+        const { saveTrip } = await import("@/lib/trip-storage")
+        saveTrip(tripWithUrls)
+        setStep("done")
       }
     } catch (err) {
       console.error("Trip generation error:", err)
@@ -590,61 +641,162 @@ export default function UploadPage() {
     )
   }
 
-  /* ─── Step: Generating ─── */
+  /* ─── Step: Generating (3段階演出) ─── */
   if (step === "generating") {
     return (
       <div className="flex min-h-dvh flex-col bg-background">
         <MobileTopBar title="" showBack />
 
         <main className="flex flex-1 flex-col items-center justify-center px-6">
-          <div className="flex w-full flex-col items-center text-center">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-gold/10">
-              <Loader2 className="h-7 w-7 animate-spin text-gold" />
-            </div>
-            <h2 className="text-lg font-bold text-foreground">
-              {t('generating.title')}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t('generating.subtitle')}
-            </p>
-
-            <div className="mt-6 w-full">
-              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-gold transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">{progress}%</p>
-            </div>
-
-            <div className="mt-6 flex w-full flex-col gap-2">
-              {[
-                { label: t('generating.steps.arrange'), done: progress > 30 },
-                { label: t('generating.steps.identify'), done: progress > 60 },
-                { label: t('generating.steps.compose'), done: progress > 90 },
-              ].map((s) => (
-                <div
-                  key={s.label}
-                  className="flex items-center gap-3 rounded-xl border border-border px-4 py-3"
-                >
-                  {s.done ? (
-                    <CheckCircle2 className="h-4 w-4 text-gold" />
-                  ) : (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  )}
-                  <span
-                    className={
-                      s.done
-                        ? "text-sm font-medium text-foreground"
-                        : "text-sm text-muted-foreground"
-                    }
-                  >
-                    {s.label}
-                  </span>
+          <div className="flex w-full flex-col items-center">
+            {/* STEP1: 時間が生まれる */}
+            {uploadStage === "analyzing_time" && (
+              <div className="w-full animate-in fade-in duration-500">
+                <div className="mb-5 flex justify-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gold/10">
+                    <Sparkles className="h-7 w-7 animate-pulse text-gold" />
+                  </div>
                 </div>
-              ))}
-            </div>
+                <h2 className="text-center text-lg font-bold text-foreground">
+                  {t('generating.analyzing_time.title')}
+                </h2>
+                <p className="mt-1 text-center text-sm text-muted-foreground">
+                  {t('generating.analyzing_time.subtitle')}
+                </p>
+
+                {/* タイムライン表示 */}
+                {timelinePreview && (
+                  <div className="mt-8 flex flex-col gap-4">
+                    {(["morning", "afternoon", "night"] as const).map((period, idx) => {
+                      const group = timelinePreview[period]
+                      if (group.length === 0) return null
+                      const TimeIcon = timeLabels[period].icon
+
+                      return (
+                        <div
+                          key={period}
+                          className="animate-in fade-in slide-in-from-bottom-2 duration-500"
+                          style={{ animationDelay: `${idx * 200}ms` }}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <TimeIcon className="h-4 w-4 text-gold" />
+                            <span className="text-sm font-semibold text-foreground">
+                              {t(`review.${period}`)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {group.length}枚
+                            </span>
+                          </div>
+                          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                            {group.slice(0, 5).map((p) => (
+                              <div
+                                key={p.id}
+                                className="relative aspect-square w-16 flex-shrink-0 overflow-hidden rounded-lg border border-border"
+                              >
+                                <Image
+                                  src={p.preview || "/placeholder.svg"}
+                                  alt="memory"
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP2: 場所が現れる */}
+            {uploadStage === "detecting_places" && (
+              <div className="w-full animate-in fade-in duration-500">
+                <div className="mb-5 flex justify-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gold/10">
+                    <MapPin className="h-7 w-7 animate-pulse text-gold" />
+                  </div>
+                </div>
+                <h2 className="text-center text-lg font-bold text-foreground">
+                  {t('generating.detecting_places.title')}
+                </h2>
+                <p className="mt-1 text-center text-sm text-muted-foreground">
+                  {t('generating.detecting_places.subtitle')}
+                </p>
+
+                {/* 地図のプレビュー（簡易版） */}
+                <div className="mt-8 h-64 w-full overflow-hidden rounded-xl border border-border bg-muted/30">
+                  <div className="relative h-full w-full">
+                    {/* 背景グリッド */}
+                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#8882_1px,transparent_1px),linear-gradient(to_bottom,#8882_1px,transparent_1px)] bg-[size:24px_24px]" />
+                    
+                    {/* ピンを表示 */}
+                    {mapPins.map((pin, idx) => (
+                      <div
+                        key={idx}
+                        className="absolute animate-in zoom-in duration-300"
+                        style={{
+                          left: `${20 + (idx * 10) % 60}%`,
+                          top: `${20 + (idx * 15) % 60}%`,
+                          animationDelay: `${idx * 100}ms`,
+                        }}
+                      >
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gold shadow-lg">
+                          <MapPin className="h-4 w-4 text-primary" />
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* ピンの数を表示 */}
+                    {mapPins.length > 0 && (
+                      <div className="absolute bottom-4 left-4 rounded-lg bg-background/90 px-3 py-1.5 text-xs font-medium text-foreground shadow-sm">
+                        {mapPins.length} か所検出
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP3: 意味がまとまる */}
+            {uploadStage === "composing_story" && (
+              <div className="w-full animate-in fade-in duration-500">
+                <div className="mb-5 flex justify-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gold/10">
+                    <Sparkles className="h-7 w-7 animate-pulse text-gold" />
+                  </div>
+                </div>
+                <h2 className="text-center text-lg font-bold text-foreground">
+                  {t('generating.composing_story.title')}
+                </h2>
+                <p className="mt-1 text-center text-sm text-muted-foreground">
+                  {t('generating.composing_story.subtitle')}
+                </p>
+
+                {/* タイトル候補をうっすら表示 */}
+                {titleCandidates.length > 0 && (
+                  <div className="mt-8 flex flex-col gap-3">
+                    {titleCandidates.map((title, idx) => (
+                      <div
+                        key={idx}
+                        className="animate-in fade-in duration-700"
+                        style={{ 
+                          animationDelay: `${idx * 200}ms`,
+                          opacity: 0.4 + (idx * 0.2)
+                        }}
+                      >
+                        <div className="rounded-xl border border-border bg-card/50 px-4 py-3 text-center backdrop-blur-sm">
+                          <span className="text-sm font-medium text-foreground/70">
+                            {title}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </main>
       </div>
