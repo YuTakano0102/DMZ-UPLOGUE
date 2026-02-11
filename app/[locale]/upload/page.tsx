@@ -305,36 +305,61 @@ export default function UploadPage() {
     setTitleCandidates([])
 
     try {
-      // ✅ 写真を圧縮してからFormDataを作成
-      console.log('Compressing images before upload...')
-      const formData = new FormData()
+      // ===== STEP1: 写真を圧縮してSupabase Storageに直接アップロード =====
+      console.log('📤 Uploading images directly to Supabase Storage...')
       
-      // ✅ EXIF情報を配列にまとめる（圧縮で失われるため）
-      const exifDataArray: ExifData[] = []
+      const { supabase, STORAGE_BUCKETS } = await import("@/lib/supabase")
+      
+      const uploadedPhotos: Array<{
+        id: string
+        url: string
+        exif: ExifData
+      }> = []
       
       for (let i = 0; i < photos.length; i++) {
         const photo = photos[i]
-        console.log(`Compressing ${i + 1}/${photos.length}: ${photo.file.name} (${(photo.file.size / 1024 / 1024).toFixed(2)}MB)`)
+        console.log(`📸 [${i + 1}/${photos.length}] Compressing: ${photo.file.name} (${(photo.file.size / 1024 / 1024).toFixed(2)}MB)`)
         
+        // 圧縮
         const compressedFile = await compressImage(photo.file)
         console.log(`  → Compressed to ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`)
-        console.log(`  → EXIF: lat=${photo.exif.latitude}, lng=${photo.exif.longitude}`)
         
-        formData.append("photos", compressedFile)
-        formData.append("photoIds", photo.id)
-        exifDataArray.push(photo.exif)
+        // Supabase Storageに直接アップロード
+        const timestamp = Date.now()
+        const randomStr = Math.random().toString(36).substring(2, 9)
+        const extension = compressedFile.name.split('.').pop() || 'jpg'
+        const uniqueFileName = `${timestamp}-${randomStr}-${i}.${extension}`
+        
+        const { data, error } = await supabase.storage
+          .from(STORAGE_BUCKETS.PHOTOS)
+          .upload(uniqueFileName, compressedFile, {
+            cacheControl: '31536000',
+            upsert: false,
+          })
+        
+        if (error) {
+          console.error(`❌ Upload failed for ${photo.file.name}:`, error)
+          throw new Error(`画像のアップロードに失敗しました: ${error.message}`)
+        }
+        
+        // 公開URLを取得
+        const { data: urlData } = supabase.storage
+          .from(STORAGE_BUCKETS.PHOTOS)
+          .getPublicUrl(data.path)
+        
+        uploadedPhotos.push({
+          id: photo.id,
+          url: urlData.publicUrl,
+          exif: photo.exif,
+        })
+        
+        console.log(`  ✓ Uploaded: ${urlData.publicUrl}`)
       }
       
-      // ✅ EXIF情報をJSON化して送信
-      formData.append("exifData", JSON.stringify(exifDataArray))
-      
-      // ✅ ロケール情報を送信
-      formData.append("locale", locale)
-      
-      console.log('All images compressed successfully')
+      console.log(`✅ All ${uploadedPhotos.length} photos uploaded successfully`)
 
-      // ✅ APIリクエストを並列で開始（待機しない）
-      console.log('Starting trip generation API call...')
+      // ===== STEP2: APIに画像URLだけを送信（軽量なJSONのみ） =====
+      console.log('🚀 Sending photo URLs to API...')
       const startTime = Date.now()
       
       const controller = new AbortController()
@@ -345,7 +370,13 @@ export default function UploadPage() {
 
       const apiPromise = fetch("/api/trips/generate", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          photos: uploadedPhotos,
+          locale: locale,
+        }),
         signal: controller.signal,
       }).then(async (response) => {
         clearTimeout(timeoutId)
