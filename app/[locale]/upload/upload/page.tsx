@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { MobileTopBar } from "@/components/mobile-top-bar"
 import { BottomTabBar } from "@/components/bottom-tab-bar"
-import { extractExifSimple, extractExifFromImage } from "@/lib/exif-utils"
+import { extractExifSimple, extractExifFromImage, type ExifData } from "@/lib/exif-utils"
 import type { Trip } from "@/lib/mock-data"
 
 interface MemoryPhoto {
@@ -29,6 +29,7 @@ interface MemoryPhoto {
   preview: string
   hasGps: boolean
   timestamp: Date
+  exif: ExifData // ✅ EXIF情報を保持
 }
 
 type FlowStep = "import" | "detecting" | "review" | "generating" | "done"
@@ -39,6 +40,42 @@ function getTimeOfDay(date: Date): "morning" | "afternoon" | "night" {
   if (h < 12) return "morning"
   if (h < 18) return "afternoon"
   return "night"
+}
+
+/**
+ * 画像を圧縮してファイルサイズを削減
+ * Vercelのペイロード制限対策
+ */
+async function compressImage(file: File, maxSize = 1600, quality = 0.72): Promise<File> {
+  // HEICはブラウザがdecodeできないことがあるので、その場合はそのまま返す
+  const isHeic = /\.(heic|heif)$/i.test(file.name)
+  if (isHeic) return file
+
+  try {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height))
+    const w = Math.round(bitmap.width * scale)
+    const h = Math.round(bitmap.height * scale)
+
+    const canvas = document.createElement("canvas")
+    canvas.width = w
+    canvas.height = h
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return file
+    ctx.drawImage(bitmap, 0, 0, w, h)
+
+    const blob: Blob | null = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality)
+    )
+
+    if (!blob) return file
+
+    return new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" })
+  } catch (error) {
+    console.error("Image compression failed:", error)
+    return file // 圧縮失敗時は元ファイルを返す
+  }
 }
 
 const timeLabels = {
@@ -141,6 +178,7 @@ export default function UploadPage() {
               preview: URL.createObjectURL(file),
               hasGps: exif.latitude !== null && exif.longitude !== null,
               timestamp: exif.timestamp || new Date(file.lastModified),
+              exif, // ✅ EXIF情報を保存
             }
             
             newPhotos.push(photo)
@@ -163,6 +201,12 @@ export default function UploadPage() {
               preview: URL.createObjectURL(file),
               hasGps: false,
               timestamp: new Date(file.lastModified),
+              exif: { // ✅ 空のEXIF情報
+                latitude: null,
+                longitude: null,
+                timestamp: null,
+                fileName: file.name,
+              },
             }
             newPhotos.push(photo)
           }
@@ -209,21 +253,68 @@ export default function UploadPage() {
     setWarnings([])
 
     try {
-      // FormDataを作成
-      const formData = new FormData()
-      photos.forEach((photo) => {
-        formData.append("photos", photo.file)
-      })
+      // ===== STEP1: 写真を圧縮してSupabase Storageに直接アップロード =====
+      console.log('📤 Uploading images directly to Supabase Storage...')
+      
+      const { supabase, STORAGE_BUCKETS } = await import("@/lib/supabase")
+      
+      const uploadedPhotos: Array<{
+        id: string
+        url: string
+        exif: ExifData
+      }> = []
 
       // 進捗シミュレーション
       const progressInterval = setInterval(() => {
-        setProgress((prev) => Math.min(prev + 5, 90))
-      }, 200)
+        setProgress((prev) => Math.min(prev + 3, 85))
+      }, 300)
+      
+      for (let i = 0; i < photos.length; i++) {
+        const photo = photos[i]
+        console.log(`📸 [${i + 1}/${photos.length}] Compressing: ${photo.file.name} (${(photo.file.size / 1024 / 1024).toFixed(2)}MB)`)
+        
+        // 圧縮
+        const compressedFile = await compressImage(photo.file)
+        console.log(`  → Compressed to ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`)
+        
+        // Supabase Storageに直接アップロード
+        const timestamp = Date.now()
+        const randomStr = Math.random().toString(36).substring(2, 9)
+        const extension = compressedFile.name.split('.').pop() || 'jpg'
+        const uniqueFileName = `${timestamp}-${randomStr}-${i}.${extension}`
+        
+        const { data, error } = await supabase.storage
+          .from(STORAGE_BUCKETS.PHOTOS)
+          .upload(uniqueFileName, compressedFile, {
+            cacheControl: '31536000',
+            upsert: false,
+          })
+        
+        if (error) {
+          console.error(`❌ Upload failed for ${photo.file.name}:`, error)
+          throw new Error(`画像のアップロードに失敗しました: ${error.message}`)
+        }
+        
+        // 公開URLを取得
+        const { data: urlData } = supabase.storage
+          .from(STORAGE_BUCKETS.PHOTOS)
+          .getPublicUrl(data.path)
+        
+        uploadedPhotos.push({
+          id: photo.id,
+          url: urlData.publicUrl,
+          exif: photo.exif,
+        })
+        
+        console.log(`  ✓ Uploaded: ${urlData.publicUrl}`)
+      }
+      
+      console.log(`✅ All ${uploadedPhotos.length} photos uploaded successfully`)
 
-      console.log('Starting trip generation API call...')
+      // ===== STEP2: APIに画像URLだけを送信（軽量なJSONのみ） =====
+      console.log('🚀 Sending photo URLs to API...')
       const startTime = Date.now()
-
-      // APIリクエスト（タイムアウト90秒）
+      
       const controller = new AbortController()
       const timeoutId = setTimeout(() => {
         console.error('API call timeout after 90 seconds')
@@ -233,7 +324,13 @@ export default function UploadPage() {
       try {
         const response = await fetch("/api/trips/generate", {
           method: "POST",
-          body: formData,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            photos: uploadedPhotos,
+            locale: 'ja',
+          }),
           signal: controller.signal,
         })
 
