@@ -8,6 +8,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// Prismaを使うためNode.js Runtimeを明示
+export const runtime = "nodejs"
+
 /**
  * 特定の旅行記録を取得
  */

@@ -8,6 +8,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { uploadFile, STORAGE_BUCKETS } from '@/lib/supabase'
 
+// Supabaseを使うためNode.js Runtimeを明示
+export const runtime = "nodejs"
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
