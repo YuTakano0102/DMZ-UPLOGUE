@@ -115,7 +115,7 @@ export default function UploadPage() {
   
   // 3段階演出用のstate
   const [uploadStage, setUploadStage] = useState<UploadStage>("analyzing_time")
-  const [timelinePreview, setTimelinePreview] = useState<{morning: MemoryPhoto[], afternoon: MemoryPhoto[], night: MemoryPhoto[]} | null>(null)
+  const [timelinePreview, setTimelinePreview] = useState<{morning: MemoryPhoto[], afternoon: MemoryPhoto[], night: MemoryPhoto[]}>({ morning: [], afternoon: [], night: [] })
   const [mapPins, setMapPins] = useState<Array<{lat: number, lng: number}>>([])
   const [titleCandidates, setTitleCandidates] = useState<string[]>([])
 
@@ -644,7 +644,7 @@ export default function UploadPage() {
                 {timelinePreview && (
                   <div className="mt-8 flex flex-col gap-4">
                     {(["morning", "afternoon", "night"] as const).map((period, idx) => {
-                      const group = timelinePreview[period]
+                      const group = timelinePreview[period] ?? []
                       if (group.length === 0) return null
                       const TimeIcon = timeLabels[period].icon
 
@@ -1183,7 +1183,7 @@ export default function UploadPage() {
         {/* Photos grouped by time of day */}
         <div className="mt-5 flex flex-col gap-5">
           {(["morning", "afternoon", "night"] as const).map((period) => {
-            const group = groupedPhotos[period]
+            const group = groupedPhotos[period] ?? []
             if (group.length === 0) return null
             const TimeIcon = timeLabels[period].icon
 
