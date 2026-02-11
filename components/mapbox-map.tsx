@@ -86,11 +86,14 @@ export function MapboxMap({
     if (useGeolocation && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          map.current?.flyTo({
-            center: [position.coords.longitude, position.coords.latitude],
-            zoom: 10,
-            duration: 1500,
-          })
+          // 安全ガード: position.coordsが存在するか確認
+          if (position?.coords?.longitude !== undefined && position?.coords?.latitude !== undefined) {
+            map.current?.flyTo({
+              center: [position.coords.longitude, position.coords.latitude],
+              zoom: 10,
+              duration: 1500,
+            })
+          }
         },
         () => {
           // Geolocation denied or failed - stay at fallback
