@@ -19,7 +19,20 @@ export const maxDuration = 60
  */
 export async function POST(request: NextRequest) {
   try {
+    // リクエストボディを取得してデバッグ
+    const contentType = request.headers.get('content-type')
+    console.log('Content-Type:', contentType)
+    
+    if (!contentType?.includes('application/json')) {
+      console.error('Invalid Content-Type:', contentType)
+      return NextResponse.json(
+        { error: 'Content-Type must be application/json' },
+        { status: 400 }
+      )
+    }
+
     const body = await request.json()
+    console.log('Received body:', JSON.stringify(body).substring(0, 200))
 
     // ✅ アップロード済みの画像情報を取得
     const { photos, locale } = body as {
@@ -159,6 +172,19 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Trip generation error:', error)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    
+    // JSONパースエラーの詳細を返す
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { 
+          error: 'Invalid JSON format',
+          details: error.message,
+          hint: 'フロントエンドから送信されるデータの形式を確認してください'
+        },
+        { status: 400 }
+      )
+    }
     
     const errorMessage = error instanceof Error ? error.message : '旅行記録の生成に失敗しました'
     
