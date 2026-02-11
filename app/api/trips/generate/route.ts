@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateTripFromPhotos } from '@/lib/trip-generator'
 import type { ExifData } from '@/lib/exif-utils'
-import { uploadFile, STORAGE_BUCKETS } from '@/lib/supabase'
 import { prisma } from '@/lib/prisma'
 
 // Vercel Serverless Functionのタイムアウトと実行環境を設定
@@ -13,22 +12,26 @@ export const maxDuration = 60
  * POST /api/trips/generate
  * 
  * フロー:
- * 1. 写真をSupabase Storageにアップロード
+ * 1. クライアントから画像URL + EXIF情報を受け取る（画像は既にSupabase Storageにアップロード済み）
  * 2. 旅行記録を生成
  * 3. Prismaでデータベースに保存
  * 4. 保存された旅行記録を返す
  */
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData()
+    const body = await request.json()
 
-    // ✅ 写真ファイル、photoIDs、EXIF情報、ロケールを取得
-    const photoFiles = formData.getAll("photos").filter((v): v is File => v instanceof File)
-    const photoIds = formData.getAll("photoIds").filter((v): v is string => typeof v === "string")
-    const exifDataString = formData.get("exifData")
-    const locale = formData.get("locale") as string | null
+    // ✅ アップロード済みの画像情報を取得
+    const { photos, locale } = body as {
+      photos: Array<{
+        id: string
+        url: string
+        exif: ExifData
+      }>
+      locale?: string
+    }
 
-    if (photoFiles.length === 0) {
+    if (!photos || photos.length === 0) {
       return NextResponse.json(
         { error: '写真が選択されていません' },
         { status: 400 }
@@ -36,67 +39,29 @@ export async function POST(request: NextRequest) {
     }
 
     // 写真数の上限チェック(パフォーマンス対策)
-    if (photoFiles.length > 100) {
+    if (photos.length > 100) {
       return NextResponse.json(
         { error: '一度にアップロードできる写真は100枚までです' },
         { status: 400 }
       )
     }
 
-    // ✅ ids が無い/数が合わない場合のフォールバック
-    const ids =
-      photoIds.length === photoFiles.length
-        ? photoIds
-        : photoFiles.map((f, i) => `${f.name}-${i}`)
-
-    // ✅ EXIF情報をパース
-    let exifDataArray: ExifData[] | undefined
-    if (exifDataString && typeof exifDataString === 'string') {
-      try {
-        exifDataArray = JSON.parse(exifDataString)
-        console.log(`Received ${exifDataArray?.length} EXIF data entries`)
-      } catch (e) {
-        console.error('Failed to parse EXIF data:', e)
-      }
-    }
-
-    // ===== STEP 1: 写真をSupabase Storageにアップロード =====
-    console.log(`Uploading ${photoFiles.length} photos to Supabase Storage...`)
-    
-    const uploadPromises = photoFiles.map(async (file, index) => {
-      const timestamp = Date.now()
-      const randomStr = Math.random().toString(36).substring(2, 9)
-      const extension = file.name.split('.').pop() || 'jpg'
-      const uniqueFileName = `${timestamp}-${randomStr}-${index}.${extension}`
-      
-      const { url, path } = await uploadFile(
-        STORAGE_BUCKETS.PHOTOS,
-        uniqueFileName,
-        file,
-        {
-          cacheControl: '31536000',
-          upsert: false,
-        }
-      )
-
-      return {
-        id: ids[index],
-        url,
-        path,
-      }
-    })
-
-    const uploadedPhotos = await Promise.all(uploadPromises)
-    console.log(`✓ Uploaded ${uploadedPhotos.length} photos`)
+    console.log(`✅ Received ${photos.length} photo URLs from client`)
 
     // photoId → url のマッピングを作成
-    const photoUrlMap = new Map(uploadedPhotos.map(p => [p.id, p.url]))
+    const photoUrlMap = new Map(photos.map(p => [p.id, p.url]))
+    
+    // EXIF情報を抽出
+    const exifDataArray = photos.map(p => p.exif)
+    const photoIds = photos.map(p => p.id)
 
-    // ===== STEP 2: 旅行記録を生成 =====
-    console.log('Generating trip from photos...')
-    const result = await generateTripFromPhotos(photoFiles, undefined, ids, exifDataArray, locale || 'ja')
+    // ===== STEP 1: 旅行記録を生成 =====
+    // 注意: generateTripFromPhotos は File[] を期待しているが、
+    // 実際にはEXIF情報だけを使用するので、空の配列を渡す
+    console.log('Generating trip from EXIF data...')
+    const result = await generateTripFromPhotos([], undefined, photoIds, exifDataArray, locale || 'ja')
 
-    // ===== STEP 3: Prismaでデータベースに保存 =====
+    // ===== STEP 2: Prismaでデータベースに保存 =====
     console.log('Saving trip to database...')
     
     const savedTrip = await prisma.$transaction(async (tx) => {
@@ -185,7 +150,7 @@ export async function POST(request: NextRequest) {
       })),
     } : null
 
-    // ===== STEP 4: レスポンスを返す =====
+    // ===== STEP 3: レスポンスを返す =====
     return NextResponse.json({
       success: true,
       trip: formattedTrip,

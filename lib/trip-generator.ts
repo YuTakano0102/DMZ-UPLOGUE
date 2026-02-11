@@ -52,6 +52,9 @@ export async function generateTripFromPhotos(
   const currentLocale = locale || 'ja'
   const warnings: string[] = []
 
+  // ✅ EXIF情報が渡された場合はそれを使用（クライアント直接アップロード時）
+  const photoCount = exifDataArray?.length || photos.length
+
   // ステップ1: EXIF情報抽出
   onProgress?.({
     step: 'extracting',
@@ -60,8 +63,8 @@ export async function generateTripFromPhotos(
   })
 
   const photosWithExif: PhotoWithExif[] = []
-  for (let i = 0; i < photos.length; i++) {
-    const photo = photos[i]
+  for (let i = 0; i < photoCount; i++) {
+    const photo = photos[i] || null // クライアント直接アップロード時はnull
     
     // ✅ 渡されたEXIF情報を優先的に使用（圧縮で失われるため）
     const exif = exifDataArray?.[i] 
@@ -72,21 +75,23 @@ export async function generateTripFromPhotos(
             ? new Date(exifDataArray[i].timestamp as any)
             : null
         }
-      : await extractExifFromImage(photo)
+      : photo 
+        ? await extractExifFromImage(photo)
+        : { latitude: null, longitude: null, timestamp: null, fileName: '' }
     
     console.log(`Photo ${i + 1}: Using ${exifDataArray?.[i] ? 'provided' : 'extracted'} EXIF, GPS=${exif.latitude},${exif.longitude}`)
     
     photosWithExif.push({
       id: photoIds?.[i] ?? `photo-${i}`, // ✅ クライアントのIDを使用
-      file: photo,
+      file: photo as File, // クライアント直接アップロード時はダミー
       exif,
     })
 
     // 進捗更新
     onProgress?.({
       step: 'extracting',
-      progress: 10 + (i / photos.length) * 20,
-      message: `EXIF情報を抽出中... (${i + 1}/${photos.length})`,
+      progress: 10 + (i / photoCount) * 20,
+      message: `EXIF情報を抽出中... (${i + 1}/${photoCount})`,
     })
   }
 
@@ -97,9 +102,9 @@ export async function generateTripFromPhotos(
   
   if (gpsPhotos.length === 0) {
     warnings.push('GPS情報が含まれていません。位置情報は手動で指定してください。')
-  } else if (gpsPhotos.length < photos.length * 0.3) {
+  } else if (gpsPhotos.length < photoCount * 0.3) {
     warnings.push(
-      `GPS情報が少ない写真が多く含まれています。(${gpsPhotos.length}/${photos.length}枚)`
+      `GPS情報が少ない写真が多く含まれています。(${gpsPhotos.length}/${photoCount}枚)`
     )
   }
 
@@ -284,7 +289,7 @@ export async function generateTripFromPhotos(
     endDate,
     location,
     spotCount: spots.length,
-    photoCount: photos.length,
+    photoCount: photoCount,
     isPublic: false,
     spots,
   }
