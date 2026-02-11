@@ -126,11 +126,21 @@ export default function MapLoguePage() {
   const [selectedSpot, setSelectedSpot] = useState<MapSpot | null>(null)
   const [userTrips, setUserTrips] = useState<Trip[]>([])
 
-  // localStorageから旅行データを読み込む
+  // APIから旅行データを読み込む
   useEffect(() => {
-    const trips = getAllTrips()
-    setUserTrips(trips)
-    console.log('Loaded user trips for MapLogue:', trips.length)
+    const loadTrips = async () => {
+      try {
+        const trips = await getAllTrips()
+        // 配列保証
+        const safeTrips = Array.isArray(trips) ? trips : []
+        setUserTrips(safeTrips)
+        console.log('Loaded user trips for MapLogue:', safeTrips)
+      } catch (error) {
+        console.error('Failed to load trips for MapLogue:', error)
+        setUserTrips([])
+      }
+    }
+    loadTrips()
   }, [])
 
   // TripをMapSpotに変換
@@ -161,8 +171,8 @@ export default function MapLoguePage() {
     }
   }
 
-  // ユーザーの旅行をMapSpotに変換
-  const userMapSpots = userTrips
+  // ユーザーの旅行をMapSpotに変換（配列保証）
+  const userMapSpots = (Array.isArray(userTrips) ? userTrips : [])
     .map(convertTripToMapSpot)
     .filter((spot): spot is MapSpot => spot !== null)
 
