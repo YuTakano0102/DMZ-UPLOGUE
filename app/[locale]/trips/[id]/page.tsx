@@ -183,7 +183,7 @@ export default function TripDetailPage({
             {view === "timeline" && (
               <div className="px-4 py-5 pb-8">
                 {/* タイトルウィザード（タグがある場合のみ表示） */}
-                {trip.tags && trip.tags.length >= 5 && (
+                {trip.tags?.length && trip.tags.length >= 5 && (
                   <TitleWizard 
                     trip={trip} 
                     onUpdated={(updatedTrip) => setTrip(updatedTrip)} 

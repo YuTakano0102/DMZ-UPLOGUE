@@ -176,10 +176,19 @@ export async function POST(request: NextRequest) {
 
     console.log(`✓ Trip saved: ${savedTrip?.id}`)
 
+    // Prismaの結果をフロントエンド形式に変換
+    const formattedTrip = savedTrip ? {
+      ...savedTrip,
+      spots: savedTrip.spots.map(spot => ({
+        ...spot,
+        photos: spot.photos.map(p => p.url), // Photo[] → string[]
+      })),
+    } : null
+
     // ===== STEP 4: レスポンスを返す =====
     return NextResponse.json({
       success: true,
-      trip: savedTrip,
+      trip: formattedTrip,
       warnings: result.warnings,
       tags: result.tags,
     })

@@ -31,9 +31,18 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    // Prismaの結果をフロントエンド形式に変換
+    const formattedTrips = trips.map(trip => ({
+      ...trip,
+      spots: trip.spots.map(spot => ({
+        ...spot,
+        photos: spot.photos.map(p => p.url), // Photo[] → string[]
+      })),
+    }))
+
     return NextResponse.json({
-      trips,
-      count: trips.length,
+      trips: formattedTrips,
+      count: formattedTrips.length,
     })
   } catch (error) {
     console.error('Failed to fetch trips:', error)
@@ -127,9 +136,18 @@ export async function POST(request: NextRequest) {
 
     console.log(`Created trip: ${createdTrip?.id}`)
 
+    // Prismaの結果をフロントエンド形式に変換
+    const formattedTrip = createdTrip ? {
+      ...createdTrip,
+      spots: createdTrip.spots.map(spot => ({
+        ...spot,
+        photos: spot.photos.map(p => p.url), // Photo[] → string[]
+      })),
+    } : null
+
     return NextResponse.json({
       success: true,
-      trip: createdTrip,
+      trip: formattedTrip,
     })
   } catch (error) {
     console.error('Failed to create trip:', error)
