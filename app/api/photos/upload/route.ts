@@ -1,6 +1,15 @@
 /**
- * 写真アップロードAPI
+ * 写真アップロードAPI（⚠️ 非推奨）
  * POST /api/photos/upload
+ * 
+ * ⚠️ 注意: このAPIはVercel Functionを経由するため、大量の画像アップロードには向きません。
+ * 推奨: クライアント側からSupabase Storageへ直接アップロードしてください。
+ * 
+ * 制限:
+ * - Vercel Serverless Function: 最大10MB
+ * - Edge Function: 最大4MB
+ * 
+ * このAPIは小さなファイル（1〜2枚）専用です。
  * 
  * Supabase Storageに写真をアップロードして、公開URLを返す
  */
