@@ -438,7 +438,7 @@ export default function UploadPage() {
       await new Promise((r) => setTimeout(r, 500))
       
       // タグがある場合はタグ選択画面へ（ウィザードフロー）
-      if (result.tags && result.tags.length >= 5) {
+      if (result.tags?.length && result.tags.length >= 5) {
         setStep("tags")
       } else {
         // タグが不足している場合は完了画面へ（既にDBに保存済み）

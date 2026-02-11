@@ -107,24 +107,31 @@ export function Timeline({
                     </div>
                     {/* Mini photo strip */}
                     <div className="mt-2 flex gap-1">
-                      {spot.photos.slice(0, 3).map((photo, i) => (
-                        <div
-                          key={`${spot.id}-photo-${i}`}
-                          className="relative h-7 w-7 overflow-hidden rounded"
-                        >
-                          <Image
-                            src={photo || "/placeholder.svg"}
-                            alt=""
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                      ))}
-                      {spot.photos.length > 3 && (
-                        <div className="flex h-7 w-7 items-center justify-center rounded bg-muted text-[10px] text-muted-foreground">
-                          +{spot.photos.length - 3}
-                        </div>
-                      )}
+                      {(() => {
+                        const photos = Array.isArray(spot.photos) ? spot.photos : []
+                        return (
+                          <>
+                            {photos.slice(0, 3).map((photo, i) => (
+                              <div
+                                key={`${spot.id}-photo-${i}`}
+                                className="relative h-7 w-7 overflow-hidden rounded"
+                              >
+                                <Image
+                                  src={photo || "/placeholder.svg"}
+                                  alt=""
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                            ))}
+                            {photos.length > 3 && (
+                              <div className="flex h-7 w-7 items-center justify-center rounded bg-muted text-[10px] text-muted-foreground">
+                                +{photos.length - 3}
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
                   </div>
                 </div>

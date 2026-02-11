@@ -42,7 +42,16 @@ export async function GET(
       )
     }
 
-    return NextResponse.json({ trip })
+    // Prismaの結果をフロントエンド形式に変換
+    const formattedTrip = {
+      ...trip,
+      spots: trip.spots.map(spot => ({
+        ...spot,
+        photos: spot.photos.map(p => p.url), // Photo[] → string[]
+      })),
+    }
+
+    return NextResponse.json({ trip: formattedTrip })
   } catch (error) {
     console.error('Failed to fetch trip:', error)
     return NextResponse.json(
@@ -95,9 +104,18 @@ export async function PUT(
 
     console.log(`Updated trip: ${id}`)
 
+    // Prismaの結果をフロントエンド形式に変換
+    const formattedTrip = {
+      ...updatedTrip,
+      spots: updatedTrip.spots.map(spot => ({
+        ...spot,
+        photos: spot.photos.map(p => p.url), // Photo[] → string[]
+      })),
+    }
+
     return NextResponse.json({
       success: true,
-      trip: updatedTrip,
+      trip: formattedTrip,
     })
   } catch (error) {
     console.error('Failed to update trip:', error)
