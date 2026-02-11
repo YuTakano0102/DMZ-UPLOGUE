@@ -128,12 +128,17 @@
       "generateButton": "旅行記録を生成"
     },
     "generating": {
-      "title": "旅行記録を生成中...",
-      "subtitle": "AIが旅の物語を紡いでいます",
-      "steps": {
-        "arrange": "写真を整理",
-        "identify": "場所を特定",
-        "compose": "物語を作成"
+      "analyzing_time": {
+        "title": "写真の時間をたどっています",
+        "subtitle": "一日の流れを見つけています"
+      },
+      "detecting_places": {
+        "title": "歩いた場所を見つけています",
+        "subtitle": "地図に旅が現れはじめました"
+      },
+      "composing_story": {
+        "title": "この旅をひとつにしています",
+        "subtitle": "もうすぐ記録が生まれます"
       }
     },
     "tags": {

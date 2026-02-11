@@ -128,12 +128,17 @@
       "generateButton": "Generate Trip Record"
     },
     "generating": {
-      "title": "Generating trip record...",
-      "subtitle": "AI is weaving your travel story",
-      "steps": {
-        "arrange": "Organizing photos",
-        "identify": "Identifying locations",
-        "compose": "Composing story"
+      "analyzing_time": {
+        "title": "Tracing the moments",
+        "subtitle": "Finding the rhythm of the day"
+      },
+      "detecting_places": {
+        "title": "Finding where you walked",
+        "subtitle": "Your journey is appearing on the map"
+      },
+      "composing_story": {
+        "title": "Bringing the journey together",
+        "subtitle": "Your travel log is about to emerge"
       }
     },
     "tags": {
