@@ -24,7 +24,9 @@ export default function MyLoguePage() {
   const loadTrips = async () => {
     try {
       const storedTrips = await getAllTrips()
-      const allTrips = [...storedTrips, ...mockTrips]
+      // 配列保証
+      const safeStoredTrips = Array.isArray(storedTrips) ? storedTrips : []
+      const allTrips = [...safeStoredTrips, ...mockTrips]
       
       // IDで重複を除去
       const uniqueTrips = allTrips.filter(
@@ -32,7 +34,7 @@ export default function MyLoguePage() {
       )
       
       // ユーザーが作成した旅行のIDを保持
-      setUserTripIds(new Set(storedTrips.map(t => t.id)))
+      setUserTripIds(new Set(safeStoredTrips.map(t => t.id)))
       setTrips(uniqueTrips)
     } catch (error) {
       console.error('Failed to load trips:', error)
@@ -62,9 +64,11 @@ export default function MyLoguePage() {
     setDeleteConfirmId(null)
   }
 
-  const totalTrips = trips.length
-  const totalPhotos = trips.reduce((sum, t) => sum + t.photoCount, 0)
-  const totalSpots = trips.reduce((sum, t) => sum + t.spotCount, 0)
+  // 配列保証
+  const safeTrips = Array.isArray(trips) ? trips : []
+  const totalTrips = safeTrips.length
+  const totalPhotos = safeTrips.reduce((sum, t) => sum + t.photoCount, 0)
+  const totalSpots = safeTrips.reduce((sum, t) => sum + t.spotCount, 0)
 
   const stats = [
     { icon: BookOpen, value: totalTrips, label: t('trips') },
@@ -100,7 +104,7 @@ export default function MyLoguePage() {
           <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {t('yourArchive')}
           </h2>
-          {trips.length === 0 ? (
+          {safeTrips.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-sm text-muted-foreground">
                 {t('noTrips')}
@@ -111,7 +115,7 @@ export default function MyLoguePage() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {trips.map((trip) => (
+              {safeTrips.map((trip) => (
                 <TripCard 
                   key={trip.id} 
                   trip={trip}
